@@ -1,4 +1,10 @@
+
+coco/
 logs/
 outputs/
 overlays/
 *.pyc
+
+*.pt
+.DS_Store
+.python-version
