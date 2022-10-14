@@ -6,3 +6,4 @@ coco:
 
 clip:
   vision_model: "ViT-B/32"
+  model_id: "openai/clip-vit-base-patch32"
