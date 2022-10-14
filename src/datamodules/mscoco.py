@@ -5,18 +5,6 @@ from PIL import Image
 import os.path
 
 
-def get_img_tags(img_id: int, coco) -> list:
-    '''
-    Helper function that takes in an image ID from the COCO class instance and returns all 
-    associated object tags identified in the corresponding image.
-    '''
-
-    annotations = coco.imgToAnns[img_id]
-    category_ids = [annotations[i]['category_id'] for i in range(len(annotations))]
-    category_names = [item['name'] for item in coco.loadCats(category_ids)]
-    return [list(set(category_ids)), list(set(category_names))]
-
-
 class MSCOCODataset(VisionDataset):
     """
     A torch.utils.data.Dataset wrapper for MSCOCO (2017)
@@ -33,6 +21,17 @@ class MSCOCODataset(VisionDataset):
         self.coco = COCO(annFile)
         self.ids = list(sorted(self.coco.imgs.keys()))
 
+    def get_img_tags(self, img_id: int) -> list:
+        '''
+        Helper function that takes in an image ID from the COCO class instance and returns all 
+        associated object tags identified in the corresponding image.
+        '''
+
+        annotations = self.coco.imgToAnns[img_id]
+        category_ids = [annotations[i]['category_id'] for i in range(len(annotations))]
+        category_names = [item['name'] for item in self.coco.loadCats(category_ids)]
+        return [list(set(category_ids)), list(set(category_names))]
+    
     def get_img_text_data(self):
         '''
         Builds a reference table using dictionary that relates image IDs in the COCO dataset with 
@@ -42,7 +41,7 @@ class MSCOCODataset(VisionDataset):
         for i, id in enumerate(self.ids):
             img_text_data[id] = {'img_embed_row': i}
 
-            tag_ids, tag_names = get_img_tags(id, self.coco)
+            tag_ids, tag_names = self.get_img_tags(id, self.coco)
             img_text_data[id]['tag_ids'] = tag_ids
             img_text_data[id]['tag_embed_rows'] = [x-1 for x in tag_ids]
             img_text_data[id]['tag_names'] = tag_names
