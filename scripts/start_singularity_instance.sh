@@ -16,7 +16,7 @@ set -e
 # from the NFS. However, this can be slow, and hence it is often better
 # to first copy that file into a local temporary directory (e.g. /tmp),
 # and access the file from that local directory.
-DATA_DIRECTORY=${DATA_DIRECTORY:-/scratch/wz2247/data/}
+DATA_DIRECTORY=${DATA_DIRECTORY:-/home/dsr331/scratch/public/}
 
 IMAGE=${IMAGE:-/scratch/wz2247/singularity/images/pytorch_22.08-py3.sif}
 
@@ -29,7 +29,7 @@ TMPDIR=${TMPDIR:-/tmp}
 # By default, it is defined as overlay-temp.ext3, but you may
 # re-define it to some other value by setting an environment variable
 # before calling this script.
-TMP_OVERLAY=${TMP_OVERLAY:-overlay-temp.ext3}
+TMP_OVERLAY=${TMP_OVERLAY:-overlays/overlay-temp.ext3}
 TMP_OVERLAY_SOURCE=${TMP_OVERLAY_SOURCE:-overlay-5GB-3.2M.ext3}
 
 
@@ -62,7 +62,7 @@ fi
 # --nv: enables CUDA integration for the container to pass-through GPUs
 # --overlay overlay-base.ext3: overlay with the base packages, created by scripts/create_base_overlay.sh
 # --overlay overlay-packages.ext3: overlay with our installed packages, created by scripts/create_package_overlay.sh
-# --overlay $DATA_DIRECTORY/places365.squashfs: overlay containing the places365 dataset
+# --overlay $DATA_DIRECTORY/coco.sqsh: overlay containing the COCO dataset
 
 singularity instance start --containall --no-home -B $HOME/.ssh -B /scratch -B $PWD --nv \
     --overlay overlays/overlay-temp.ext3 \
