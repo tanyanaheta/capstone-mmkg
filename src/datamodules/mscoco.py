@@ -38,12 +38,11 @@ class MSCOCODataset(VisionDataset):
         their local URL (coco/images/{image_filename}.jpg) and corresponding text data (tags / captions).
         '''
         img_text_data = {}
+
         for i, id in enumerate(self.ids):
             img_text_data[id] = {'img_embed_row': i}
-
             tag_ids, tag_names = self.get_img_tags(id, self.coco)
             img_text_data[id]['tag_ids'] = tag_ids
-            img_text_data[id]['tag_embed_rows'] = [x-1 for x in tag_ids]
             img_text_data[id]['tag_names'] = tag_names
         
         self.img_text_data = img_text_data
