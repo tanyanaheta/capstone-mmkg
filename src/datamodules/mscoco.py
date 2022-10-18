@@ -41,7 +41,7 @@ class MSCOCODataset(VisionDataset):
 
         for i, id in enumerate(self.ids):
             img_text_data[id] = {'img_embed_row': i}
-            tag_ids, tag_names = self.get_img_tags(id, self.coco)
+            tag_ids, tag_names = self.get_img_tags(id)
             img_text_data[id]['tag_ids'] = tag_ids
             img_text_data[id]['tag_names'] = tag_names
         
