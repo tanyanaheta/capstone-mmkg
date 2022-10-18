@@ -43,7 +43,7 @@ def evaluate(g, features, labels, mask, model):
 def train_graph(g, features, masks, model):
     # define train/val samples, loss function and optimizer
     train_mask, val_mask = masks
-    loss_fcn = torch.nn.BCEWithLogitsLoss()
+    loss_fcn = torch.nn.L1Loss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2, weight_decay=5e-4)
 
     # training loop
