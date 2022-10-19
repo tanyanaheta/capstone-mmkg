@@ -17,6 +17,7 @@ layer_setup.sh
 singularity_setup.sh
 ```
 
+### Data Organization 
 To work with current data processing modules (and in alignment with MS COCO's recommended directory structure), MS COCO data should be saved into the "coco" folder in your project directory and organized relative to other files in the project directory as shown below.
 
 ```
