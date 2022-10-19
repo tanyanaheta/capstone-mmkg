@@ -65,7 +65,8 @@ clip_embed.py
 ```
 
 ### GraphSAGE Integration 
-Implementing Embedding Inference using the GraphSAGE architecture. Work is done in a Jupyter Notebook, calling custom functions from one python file. The Jupyter Notebook takes in the graph from the graph_csv directory generated in the Graph Generation component. ```
+Implementing Embedding Inference using the GraphSAGE architecture. Work is done in a Jupyter Notebook, calling custom functions from one python file. The Jupyter Notebook takes in the graph from the graph_csv directory generated in the Graph Generation component. 
+```
 DGL_to_SAGE.ipynb
 graph_training.py
 ```
