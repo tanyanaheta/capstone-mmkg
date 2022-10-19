@@ -18,7 +18,7 @@ class SAGE(nn.Module):
         # one-layer GraphSAGE-mean
         self.layers.append(dglnn.SAGEConv(in_size, out_size, sage_conv_method))
         # self.layers.append(dglnn.SAGEConv(hid_size, out_size, sage_conv_method))
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.0)
 
     def forward(self, graph, x):
         h = self.dropout(x)
@@ -47,7 +47,8 @@ def train_graph(g, features, masks, model):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2, weight_decay=5e-4)
 
     # training loop
-    for epoch in range(200):
+    initial_distance = 0
+    for epoch in range(500):
         model.train()
         logits = model(g, features)
         loss = loss_fcn(logits[train_mask], g.ndata['feat'][train_mask])
@@ -55,11 +56,16 @@ def train_graph(g, features, masks, model):
         loss.backward()
         optimizer.step()
         acc = evaluate(g, features, g.ndata['feat'], val_mask, model)
-        print(
-            "Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} ".format(
-                epoch, loss.item(), acc
+
+        if initial_distance == 0:
+            initial_distance = acc
+
+        if epoch % 25 == 0:
+            print(
+                "Epoch {:05d} | Loss {:.4f} | Distance Reduced {:.4f} %".format(
+                    epoch, loss.item(), (initial_distance - acc) / initial_distance
+                )
             )
-        )
 
 def run(g, sage_conv_method='mean'):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,4 +85,6 @@ def run(g, sage_conv_method='mean'):
     # test the model
     print("Testing...")
     acc = evaluate(g, features, g.ndata['feat'], g.ndata["test_mask"], model)
-    print("Test accuracy {:.4f}".format(acc))
+    print("Testing Complete")
+
+    return model.forward(g, g.ndata['feat'])
