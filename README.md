@@ -9,6 +9,14 @@ curl -O http://images.cocodataset.org/annotations/annotations_trainval2017.zip
 curl -O http://images.cocodataset.org/zips/val2017.zip
 ```
 
+### Environment Setup 
+There are scripts available to automate both the creation of a singularity instance with the properly configured overlays AND the activation of a conda environment once on the singularity that installs dgl. The scripts are listed below 
+
+```
+layer_setup.sh
+singularity_setup.sh
+```
+
 To work with current data processing modules (and in alignment with MS COCO's recommended directory structure), MS COCO data should be saved into the "coco" folder in your project directory and organized relative to other files in the project directory as shown below.
 
 ```
