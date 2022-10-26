@@ -1,10 +1,12 @@
-
+zillow_data/
 coco/
 logs/
 outputs/
 overlays/
-*.pyc
 
+*.pyc
+*.sqsh
+*.ext3
 *.pt
 .DS_Store
 .python-version
