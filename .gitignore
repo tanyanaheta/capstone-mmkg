@@ -4,6 +4,9 @@ logs/
 outputs/
 overlays/
 
+*/*graph_csv
+graph_csv
+
 *.pyc
 *.sqsh
 *.ext3
