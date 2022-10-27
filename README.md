@@ -18,10 +18,10 @@ curl -O http://images.cocodataset.org/zips/val2017.zip
 ```
 
 ### Cluster Environment Setup 
-Be sure you've run the following steps in order to work in our singularity instance (here we assume we are working with Zillow data, not MS COCO). ***Confirm you are in the root level of NYU-Zillow-Capstone-2022-Team-A first***.
+Be sure you've run the following steps in order to work in our singularity instance (here we assume we are working with Zillow data, not MS COCO).
 
 #### A) Cluster setup:
-1. SSH into a Greene compute node or GCP burst node and ensure you have the contents of this repository available.
+1. SSH into a Greene compute node or GCP burst node and ensure you have the contents of this repository available in your scratch/[your_username]/ directory. ***Confirm you are in the root level of NYU-Zillow-Capstone-2022-Team-A before proceeding with the rest of the instructions***.
 
 #### B) Data configuration:
 2. Upload the file contents of the Zillow Dataset to a folder called "zillow_data" (create this folder for yourself) at the root level of NYU-Zillow-Capstone-2022-Team-A.
