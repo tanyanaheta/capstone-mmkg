@@ -2,51 +2,84 @@
 
 ## Setup and Environment Overview 
 
-### Data Configuration (MSCOCO):
-Due to its large size, MS COCO data is not included in this repository should be downloaded locally. To download zip files of the validation set of images  (5000 images total) and annotations respectively, you can run the following commands in your project directory:
+### Getting the Data 
+Due to their large sizes, datasets are not included in this repo and should be downloaded locally. Instructions for each dataset are provided below:
+
+1. Zillow Dataset:
+Zillow data can be downloaded from this [private Google Drive location](https://drive.google.com/drive/u/0/folders/1lRgFdKi_74Q3a3qLudOrpc6Nd60vGcCZ). The Google Drive folder also contains a high-level data dictionary.
+
+
+2. MSCOCO
+To download zip files of the validation set of images (5000 images total) and annotations respectively, you can run the following commands in your project directory:
 
 ```
 curl -O http://images.cocodataset.org/annotations/annotations_trainval2017.zip
 curl -O http://images.cocodataset.org/zips/val2017.zip
 ```
 
-### Environment Setup 
-There are scripts available to automate both the creation of a singularity instance with the properly configured overlays AND the activation of a conda environment once on the singularity that installs dgl. The scripts are listed below (you may have to run chmod +x script_name to execute the script).
+### Cluster Environment Setup 
+Be sure you've run the following steps in order to work in our singularity instance (here we assume we are working with Zillow data, not MS COCO). ***Confirm you are in the root level of NYU-Zillow-Capstone-2022-Team-A first***.
 
-```
-layer_setup.sh
-singularity_setup.sh
-```
+#### A) Cluster setup:
+1. SSH into a Greene compute node or GCP burst node and ensure you have the contents of this repository available.
+
+#### B) Data configuration:
+2. Upload the file contents of the Zillow Dataset to a folder called "zillow_data" (create this folder for yourself) at the root level of NYU-Zillow-Capstone-2022-Team-A.
+3. Run the following bash command: `mksquashfs zillow_data zillow.sqsh; mkdir -p /scratch/$USER/data_zillow; mv zillow.sqsh scratch/$USER/data_zillow`
+
+#### C) Overlays and Singularity Startup
+4. Run `source layer_setup.sh` to automatically create overlays and launch Singularity instance.
+5. Run `singularity instance list` and ensure that an instance named "mycontainer" is running.
+
+#### D) Access Singularity instance
+6. SSH directly into the Singularity container (via VSCode or Terminal)
+7. Run `source singularity_setup.sh` to initialize the conda environment in the running Singularity instance.
+
+From this point, you should have all the dependencies needed to complete development work. If not, please make a note of additional dependencies to add to our scripts/create_package_overlay.sh file.
 
 ### Data Organization 
-To work with current data processing modules (and in alignment with MS COCO's recommended directory structure), MS COCO data should be saved into the "coco" folder in your project directory and organized relative to other files in the project directory as shown below.
+After following instructions as laid out above, your scratch/[username] directory should be structured as shown below (unimpacted project files omitted):
 
 ```
-NYU-Zillow-Capstone-2022-Team-A
-│   clip_embed.py
-│   ...
+[scratch/your_username]
 │
-└───src
-│   └───datamodules
-│       │   mscoco.py
-│       
-└───conf
-│   │   config.yaml
-│       
-└───coco
-│   └───annotations
-│   │   │   captions_train2017.json
-│   │   │   captions_val2017.json
-│   │   │   instances_train2017.json
-│   │   │   instances_val2017.json
-│   │   │   ...
-│   │
-│   └───images
-│       │   000000000139.jpg
-│       │   000000000285.jpg
-│       │   ...
-│   ...    
-
+└───data_zillow **(CREATED)**
+│   │   zillow.sqsh **(CREATED)**
+│   
+└───tmp **(CREATED)**
+│
+└───NYU-Zillow-Capstone-2022-Team-A
+    │   layer_setup.sh
+    │   overlay-base.ext3 **(CREATED)**
+    │   overlay-packages.ext3 **(CREATED)**
+    │   overlay-temp.ext3 **(CREATED)**
+    |   start_singularity_instance.sh
+    │   singularity_setup.sh
+    │   launch.slurm
+    │   getnode.slurm
+    │   ...
+    │
+    └───scripts
+    │   │   create_base_overlay.sh
+    │   │   create_package_overlay.sh
+    │       
+    └───zillow_data **(CREATED)**
+    │   │   image_embed.joblib **(UPLOADED)**
+    │   │   keyword_embed.joblib **(UPLOADED)**
+    │   │   NYU_photoboard_file.csv **(UPLOADED)**
+    │   │   scene_embed.joblib **(UPLOADED)**
+    │   
+    └───src
+    │   │   ...    
+    │   
+    └───notebooks
+    │   │   ...  
+    │   
+    └───graph
+    │   │   ...  
+    │   
+    └───conf
+    
 ```
 ## Components 
 
