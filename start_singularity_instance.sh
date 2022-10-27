@@ -25,6 +25,8 @@ IMAGE=${IMAGE:-/scratch/wz2247/singularity/images/pytorch_22.08-py3.sif}
 INSTANCE_NAME=${INSTANCE_NAME:-mycontainer}
 
 # Set temporary directory in case it is not set
+mkdir -p /scratch/$USER/tmp
+export TMPDIR=/scratch/$USER/tmp
 TMPDIR=${TMPDIR:-/tmp}
 
 # This is the name of the temporary writable overlay to use. 

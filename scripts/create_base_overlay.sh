@@ -12,7 +12,7 @@ fi
 IMAGE_DIRECTORY=/scratch/wz2247/singularity/images/
 
 # Set this to the overlay to use for base packages
-BASE_PACKAGES_OVERLAY=overlay-7.5GB-300K.ext3
+BASE_PACKAGES_OVERLAY=overlay-15GB-500K.ext3
 
 
 # We first extract a pre-defined overlay file

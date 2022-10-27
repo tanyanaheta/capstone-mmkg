@@ -30,8 +30,9 @@ singularity exec --containall --no-home -B $HOME/.ssh \
     $IMAGE_DIRECTORY/pytorch_22.08-py3.sif /bin/bash << 'EOF'
 source ~/.bashrc
 conda activate /ext3/conda/zillow_MMKG
-conda install -y pytest
+conda install -y pytest 
 conda install -c conda-forge -y hydra-core omegaconf
+conda install -c -y dglteam dgl-cuda11.6
+TMPDIR=/dev/shm pip install ftfy regex tqdm pytorch-lightning pycocotools datasets[vision]
 
-pip install ftfy regex tqdm torch pycocotools transformers datasets[vision] pytest
 EOF
