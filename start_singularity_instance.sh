@@ -18,7 +18,7 @@ set -e
 # from the NFS. However, this can be slow, and hence it is often better
 # to first copy that file into a local temporary directory (e.g. /tmp),
 # and access the file from that local directory.
-DATA_DIRECTORY=${DATA_DIRECTORY:-/scratch/alc9635/data_zillow}
+DATA_DIRECTORY=${DATA_DIRECTORY:-/scratch/$USER/data_zillow}
 
 IMAGE=${IMAGE:-/scratch/wz2247/singularity/images/pytorch_22.08-py3.sif}
 
