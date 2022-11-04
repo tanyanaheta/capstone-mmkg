@@ -5,5 +5,7 @@
 #SBATCH --export=ALL
 #SBATCH --time=02:30:00
 #SBATCH -c 2
-INSTANCE_NAME=$INSTANCE_NAME ./start_singularity_instance.sh
+
+rsync --info=progress2 /scratch/$USER/zillow.sqsh $TMPDIR
+DATA_DIRECTORY=$TMPDIR INSTANCE_NAME=$INSTANCE_NAME  ./start_singularity_instance.sh
 sleep 3h
