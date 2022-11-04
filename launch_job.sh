@@ -5,7 +5,6 @@ then
     exit 0
 else
     SCRIPT=$1
-    USER_JOB="$(echo ${USER}_${SCRIPT})"
     JOB_NAME=${JOB_NAME:-zillow_MMKG}
 fi
 mkdir -p logs
@@ -23,7 +22,6 @@ do
             exit 0
         fi
     fi
-    # if squeue -u $USER -o "%i %T" | grep "$JOB_ID RUNNING"; then
     if squeue -u $USER -o "%i %T" | grep "$JOB_ID RUNNING"
     then
         echo 
@@ -43,6 +41,6 @@ do
         sleep 0.75
     done
 done
-sleep 5
+sleep 3
 tail -f "$(ls logs/* -1t | head -2 | grep '.err')" | sed 's/^/STDERR: /' &
 tail -f "$(ls logs/* -1t | head -2 | grep '.out')" | sed 's/^/STDOUT: /' 
