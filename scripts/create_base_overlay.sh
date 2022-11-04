@@ -22,7 +22,8 @@ BASE_PACKAGES_OVERLAY=overlay-15GB-500K.ext3
 echo "Extracting base package overlay"
 cp $OVERLAY_DIRECTORY/$BASE_PACKAGES_OVERLAY.gz .
 gunzip $BASE_PACKAGES_OVERLAY.gz
-mv $BASE_PACKAGES_OVERLAY overlay-base.ext3
+mkdir -p overlays
+mv $BASE_PACKAGES_OVERLAY /overlays/overlay-base.ext3
 
 
 # We execute the required commands to obtain a minimal

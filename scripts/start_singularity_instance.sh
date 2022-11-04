@@ -18,7 +18,7 @@ set -e
 # from the NFS. However, this can be slow, and hence it is often better
 # to first copy that file into a local temporary directory (e.g. /tmp),
 # and access the file from that local directory.
-DATA_DIRECTORY=${DATA_DIRECTORY:-/scratch/$USER/data_zillow}
+# DATA_DIRECTORY=${DATA_DIRECTORY:-/scratch/$USER/data_zillow}
 
 IMAGE=${IMAGE:-/scratch/wz2247/singularity/images/pytorch_22.08-py3.sif}
 
@@ -33,7 +33,8 @@ TMPDIR=${TMPDIR:-/tmp}
 # By default, it is defined as overlay-temp.ext3, but you may
 # re-define it to some other value by setting an environment variable
 # before calling this script.
-TMP_OVERLAY=${TMP_OVERLAY:-overlay-temp.ext3}
+mkdir -p overlays
+TMP_OVERLAY=${TMP_OVERLAY:-/overlays/overlay-temp.ext3}
 TMP_OVERLAY_SOURCE=${TMP_OVERLAY_SOURCE:-overlay-5GB-3.2M.ext3}
 
 
@@ -70,10 +71,10 @@ fi
 
 echo "creating singularity instance"
 singularity instance start --containall --no-home -B $HOME/.ssh -B /scratch -B $PWD --nv \
-    --overlay overlay-temp.ext3 \
-    --overlay overlay-base.ext3:ro \
-    --overlay overlay-packages.ext3:ro \
-    --overlay $DATA_DIRECTORY/zillow.sqsh:ro \
+    --overlay /overlays/overlay-temp.ext3 \
+    --overlay /overlays/overlay-base.ext3:ro \
+    --overlay /overlays/overlay-packages.ext3:ro \
+#    --overlay $DATA_DIRECTORY/zillow.sqsh:ro \
     $IMAGE ${INSTANCE_NAME}
    
 
