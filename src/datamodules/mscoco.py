@@ -3,6 +3,8 @@ from pycocotools.coco import COCO
 import torchvision.io as io
 from PIL import Image
 import os.path
+import pandas as pd
+import numpy as np
 
 
 class MSCOCODataset(VisionDataset):
@@ -37,13 +39,15 @@ class MSCOCODataset(VisionDataset):
         Builds a reference table using dictionary that relates image IDs in the COCO dataset with 
         their local URL (coco/images/{image_filename}.jpg) and corresponding text data (tags / captions).
         '''
-        img_text_data = {}
+        img_text_data = pd.DataFrame()
+        all_tag_ids = [item['id'] for item in self.coco.loadCats(self.coco.getCatIds())]
 
         for i, id in enumerate(self.ids):
-            img_text_data[id] = {'img_embed_row': i}
             tag_ids, tag_names = self.get_img_tags(id)
-            img_text_data[id]['tag_ids'] = tag_ids
-            img_text_data[id]['tag_names'] = tag_names
+            tag_id_idxs = np.array([all_tag_ids.index(tag_id) for tag_id in tag_ids]) # Get row position of tag_ids in tag embeddings matrix
+            tag_id_idxs_offset = tag_id_idxs + len(self.ids) # these are our new tag ids: they encode the position of the tag's embedding in embedding matrix, offset by number of image embeddings (since we will concatenate them)
+            row = [{'img_id': i, 'coco_img_id': id, 'tag_ids': tag_id_idxs_offset.tolist(), 'tag_names': tag_names}]
+            img_text_data = pd.concat([img_text_data, pd.DataFrame(row)])
         
         self.img_text_data = img_text_data
     
