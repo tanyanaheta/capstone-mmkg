@@ -146,7 +146,7 @@ class DataModule(LightningDataModule):
     ):
         super().__init__()
         self.save_hyperparameters()
-        dataset = dgl.data.CSVDataset("/zillow_graph_csv", force_reload=force_reload)
+        dataset = dgl.data.CSVDataset(csv_dataset_root, force_reload=force_reload)
         g = dataset[0]
         g, reverse_eids = to_bidirected_with_reverse_mapping(g)
         # g = g.formats(["csc"])
