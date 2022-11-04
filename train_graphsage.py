@@ -216,6 +216,10 @@ class DataModule(LightningDataModule):
 
 @hydra.main(config_name="config", config_path="conf", version_base=None)
 def train(cfg):
+    if not torch.cuda.is_available():
+        device = "cpu"
+    else:
+        device = "cuda"
     datamodule = DataModule(
         cfg.data.zillow_root, device=device, batch_size=cfg.training.batch_size
     )
@@ -236,6 +240,10 @@ def train(cfg):
 
 @hydra.main(config_name="config", config_path="conf", version_base=None)
 def evaluate(cfg):
+    if not torch.cuda.is_available():
+        device = "cpu"
+    else:
+        device = "cuda"
     datamodule = DataModule(
         cfg.data.zillow_root, device=device, batch_size=cfg.training.batch_size
     )
@@ -254,10 +262,5 @@ def evaluate(cfg):
 
 
 if __name__ == "__main__":
-    if not torch.cuda.is_available():
-        device = "cpu"
-    else:
-        device = "cuda"
-
     train()
     print("Done")
