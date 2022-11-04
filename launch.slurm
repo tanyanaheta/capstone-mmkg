@@ -8,6 +8,6 @@
 #SBATCH --mem=64G
 #SBATCH -c 8
 
-rsync --info=progress2 /scratch/$USER/zillow.sqsh $TMPDIR
+rsync --info=progress2 /scratch/$USER/data/zillow.sqsh $TMPDIR
 DATA_DIRECTORY=$TMPDIR INSTANCE_NAME=$INSTANCE_NAME ./start_singularity_instance.sh
 singularity run --containall --pwd=$PWD instance://$INSTANCE_NAME conda run -p /ext3/conda/zillow_MMKG --no-capture-output python train_graphsage.py

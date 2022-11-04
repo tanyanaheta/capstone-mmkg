@@ -68,6 +68,7 @@ fi
 # --overlay overlay-packages.ext3: overlay with our installed packages, created by scripts/create_package_overlay.sh
 # --overlay $DATA_DIRECTORY/coco.sqsh: overlay containing the COCO dataset
 
+echo "creating singularity instance"
 singularity instance start --containall --no-home -B $HOME/.ssh -B /scratch -B $PWD --nv \
     --overlay overlay-temp.ext3 \
     --overlay overlay-base.ext3:ro \
