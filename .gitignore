@@ -3,6 +3,7 @@ coco/
 logs/
 outputs/
 overlays/
+lightning_logs/
 
 */*graph_csv
 graph_csv

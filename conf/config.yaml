@@ -9,6 +9,9 @@ clip:
   model_id: "openai/clip-vit-base-patch32"
 
 data:
+  zillow_root: /zillow_graph_csv
+  coco_root: "/coco"
+  coco_partition: "val2017"
   zillow: 
     image_embeds: '../../zillow_data/image_embed.joblib'
     keyword_embeds: '../../zillow_data/keyword_embed.joblib'
@@ -30,3 +33,13 @@ graph:
     graph_dir: '../../graph/coco_graph_csv/'
     edges: 'coco_edges.csv'
     nodes: 'coco_nodes.csv'
+
+training:
+  batch_size: 1024
+  learning_rate: 0.0005
+
+model:
+  n_layers: 3
+  hidden_dim: 256
+  sage_conv_method: 'mean'
+  dropout: 0

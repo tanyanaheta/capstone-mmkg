@@ -32,7 +32,6 @@ source ~/.bashrc
 conda activate /ext3/conda/zillow_MMKG
 conda install -y pytest 
 conda install -c conda-forge -y hydra-core omegaconf
-conda install -c -y dglteam dgl-cuda11.6
 TMPDIR=/dev/shm pip install ftfy regex tqdm pytorch-lightning pycocotools datasets[vision]
-
+TMPDIR=/dev/shm pip install dgl-cu116 dglgo -f https://data.dgl.ai/wheels/repo.html
 EOF
