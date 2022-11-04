@@ -1,11 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=capstone_cv
-#SBATCH --open-mode=append
-#SBATCH --output=/scratch/alc9635/cds-bootcamp/homework/cv/logs/capstone_cv.out
-#SBATCH --error=/scratch/alc9635/cds-bootcamp/homework/cv/logs/capstone_cv.err
+#SBATCH --open-mode=truncate
+#SBATCH --output=/home/%u/scratch/projects/NYU-Zillow-Capstone-2022-Team-A/logs/%x.out
+#SBATCH --error=/home/%u/scratch/projects/NYU-Zillow-Capstone-2022-Team-A/logs/%x.err
 #SBATCH --export=ALL
 #SBATCH --time=02:30:00
-#SBATCH --gres=gpu:2
-#SBATCH --mem=64G
-#SBATCH -c 8
+#SBATCH -c 2
+INSTANCE_NAME=$INSTANCE_NAME ./start_singularity_instance.sh
 sleep 3h
