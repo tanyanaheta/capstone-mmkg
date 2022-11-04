@@ -1,18 +1,19 @@
-import numpy as np
 import argparse
+import os
+
+import dgl
+import dgl.function as fn
+import hydra
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import hydra
-from torchmetrics import RetrievalMRR, RetrievalMAP
+from torchmetrics import MeanMetric
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback
-from src.model import SAGE
+from pytorch_lightning.callbacks import ModelCheckpoint
+
 from src.datamodules.negative_sampler import NegativeSampler
-import dgl.function as fn
-import dgl
-from sklearn.metrics import roc_auc_score
-from torchmetrics import AUROC
+from src.model.SAGE import SAGE
 
 
 def to_bidirected_with_reverse_mapping(g):
@@ -40,25 +41,6 @@ def to_bidirected_with_reverse_mapping(g):
     return g_simple, reverse_mapping
 
 
-# class CrossEntropyLoss(nn.Module):
-#     def forward(self, block_outputs, pos_graph, neg_graph):
-#         with pos_graph.local_scope():
-#             pos_graph.ndata["h"] = block_outputs
-#             pos_graph.apply_edges(fn.u_dot_v("h", "h", "score"))
-#             pos_score = pos_graph.edata["score"]
-#         with neg_graph.local_scope():
-#             neg_graph.ndata["h"] = block_outputs
-#             neg_graph.apply_edges(fn.u_dot_v("h", "h", "score"))
-#             neg_score = neg_graph.edata["score"]
-
-#         score = torch.cat([pos_score, neg_score])
-#         label = torch.cat(
-#             [torch.ones_like(pos_score), torch.zeros_like(neg_score)]
-#         ).long()
-#         loss = F.binary_cross_entropy_with_logits(score, label.float())
-#         return loss
-
-
 class ScorePredictor(nn.Module):
     def forward(self, edge_subgraph, x):
         with edge_subgraph.local_scope():
@@ -72,19 +54,25 @@ class SAGELightning(LightningModule):
         self,
         in_dim,
         h_dim,
-        n_layers,
+        n_layers=3,
         activation=F.relu,
         dropout=0,
         sage_conv_method="mean",
         lr=0.0005,
+        batch_size=1024,
     ):
         super().__init__()
-        self.save_hyperparameters()
         self.module = SAGE(
             in_dim, h_dim, n_layers, activation, dropout, sage_conv_method
         )
         self.lr = lr
         self.predictor = ScorePredictor()
+        self.batch_size = batch_size
+        self.save_hyperparameters()
+
+        self.train_loss = MeanMetric()
+        self.val_positive_distance = MeanMetric()
+        self.val_negative_distance = MeanMetric()
 
     def forward(self, graph, blocks, x):
         self.module(graph, blocks, x)
@@ -101,7 +89,15 @@ class SAGELightning(LightningModule):
         neg_label = torch.zeros_like(neg_score)
         labels = torch.cat([pos_label, neg_label])
         loss = F.binary_cross_entropy_with_logits(score, labels)
-        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=False)
+        self.train_loss(loss)
+        self.log(
+            "train_loss",
+            self.train_loss,
+            prog_bar=True,
+            on_step=True,
+            on_epoch=False,
+            batch_size=self.batch_size,
+        )
 
         return loss
 
@@ -112,22 +108,24 @@ class SAGELightning(LightningModule):
         pos_score = self.predictor(pos_graph, logits)
         neg_score = self.predictor(neg_graph, logits)
 
-        pos_score, neg_score = self.module(pos_graph, neg_graph, blocks, x)
+        self.val_positive_distance(pos_score)
+        self.val_negative_distance(neg_score)
+
         self.log(
-            "mean_val_pos_score",
-            pos_score.mean(),
+            "mean_val_posititve_distance",
+            self.val_positive_distance,
             prog_bar=True,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
-            sync_dist=True,
+            batch_size=self.batch_size,
         )
         self.log(
-            "mean_val_neg_score",
-            neg_score.mean(),
+            "mean_val_negative_distance",
+            self.val_negative_distance,
             prog_bar=True,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
-            sync_dist=True,
+            batch_size=self.batch_size,
         )
 
     def configure_optimizers(self):
@@ -138,7 +136,7 @@ class SAGELightning(LightningModule):
 class DataModule(LightningDataModule):
     def __init__(
         self,
-        dataset_name,
+        csv_dataset_root,
         data_cpu=False,
         fan_out=[10, 25],
         device="cpu",
@@ -147,41 +145,29 @@ class DataModule(LightningDataModule):
         force_reload=False,
     ):
         super().__init__()
-        if dataset_name == "zillow":
-            dataset = dgl.data.CSVDataset(
-                "./data/zillow_graph/zillow_graph_dgl", force_reload=force_reload
-            )
-            g = dataset[0]
-            g = g.to(device)
-            g, reverse_eids = to_bidirected_with_reverse_mapping(g)
-            reverse_eids = reverse_eids.to(device)
-            seed_edges = torch.arange(g.num_edges()).to(device)
-        else:
-            pass
+        self.save_hyperparameters()
+        dataset = dgl.data.CSVDataset("/zillow_graph_csv", force_reload=force_reload)
+        g = dataset[0]
+        g, reverse_eids = to_bidirected_with_reverse_mapping(g)
+        # g = g.formats(["csc"])
+        g = g.to(device)
+        reverse_eids = reverse_eids.to(device)
+        # seed_edges = torch.arange(g.num_edges()).to(device)
 
-        train_nid = torch.nonzero(g.ndata["train_mask"], as_tuple=True)[0]
-        val_nid = torch.nonzero(g.ndata["val_mask"], as_tuple=True)[0]
+        train_nid = torch.nonzero(g.ndata["train_mask"], as_tuple=True)[0].to(device)
+        val_nid = torch.nonzero(g.ndata["val_mask"], as_tuple=True)[0].to(device)
         test_nid = torch.nonzero(
             ~(g.ndata["train_mask"] | g.ndata["val_mask"]), as_tuple=True
-        )[0]
+        )[0].to(device)
 
         sampler = dgl.dataloading.MultiLayerNeighborSampler(
             [int(_) for _ in fan_out], prefetch_node_feats=["feat"]
         )
 
-        dataloader_device = torch.device("cpu")
-        if not data_cpu:
-            train_nid = train_nid.to(device)
-            val_nid = val_nid.to(device)
-            test_nid = test_nid.to(device)
-            g = g.formats(["csc"])
-            g = g.to(device)
-            dataloader_device = device
-
         self.g = g
         self.train_nid, self.val_nid, self.test_nid = train_nid, val_nid, test_nid
         self.sampler = sampler
-        self.device = dataloader_device
+        self.device = device
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.in_dim = g.ndata["feat"].shape[1]
@@ -212,7 +198,7 @@ class DataModule(LightningDataModule):
             self.sampler,
             exclude="reverse_id",
             reverse_eids=self.reverse_eids,
-            negative_sampler=NegativeSampler(self.g, 5)
+            negative_sampler=NegativeSampler(self.g, 1)
             # negative_sampler=dgl.dataloading.negative_sampler.PerSourceUniform(5),
         )
 
@@ -228,17 +214,50 @@ class DataModule(LightningDataModule):
         )
 
 
-if __name__ == "__main__":
-    if not torch.cuda.is_available():
-        mode = "cpu"
-    print(f"Training in {mode} mode.")
+@hydra.main(config_name="config", config_path="conf", version_base=None)
+def train(cfg):
+    datamodule = DataModule(
+        cfg.data.zillow_root, device=device, batch_size=cfg.training.batch_size
+    )
+    model = SAGELightning(
+        datamodule.in_dim,
+        cfg.model.hidden_dim,
+        n_layers=cfg.model.n_layers,
+        batch_size=cfg.training.batch_size,
+    )
 
-    print("Loading data")
-    datamodule = DataModule("zillow", device=mode)
-
-    model = SAGELightning(datamodule.in_dim, 256, 3)
-
-    checkpoint_callback = ModelCheckpoint(monitor="mean_val_pos_score", save_top_k=1)
-    trainer = Trainer(gpus=[0], max_epochs=2, callbacks=[checkpoint_callback])
+    checkpoint_callback = ModelCheckpoint(
+        monitor="mean_val_negative_distance", save_top_k=1, mode="max"
+    )
+    trainer = Trainer(accelerator="gpu", max_epochs=10, callbacks=[checkpoint_callback])
 
     trainer.fit(model, datamodule=datamodule)
+
+
+@hydra.main(config_name="config", config_path="conf", version_base=None)
+def evaluate(cfg):
+    datamodule = DataModule(
+        cfg.data.zillow_root, device=device, batch_size=cfg.training.batch_size
+    )
+    model = SAGELightning(
+        datamodule.in_dim,
+        h_dim=cfg.model.hidden_dim,
+        n_layers=cfg.model.n_layers,
+        batch_size=cfg.training.batch_size,
+    )
+
+    trainer = Trainer(accelerator="gpu")
+
+    dataloader = datamodule.val_dataloader()
+
+    trainer.test(model, dataloaders=dataloader)
+
+
+if __name__ == "__main__":
+    if not torch.cuda.is_available():
+        device = "cpu"
+    else:
+        device = "cuda"
+
+    train()
+    print("Done")
