@@ -2,12 +2,12 @@ run:
 	@./launch_job.sh launch.slurm
 
 build:
-	@./layer_setup.sh
+	@./scripts/layer_setup.sh
 
 getnode:
 	@./launch_job.sh getnode.slurm
 
 clean:
-	@rm overlay-*
+	@rm /scripts/overlays/overlay-*
 
 rebuild: clean build
