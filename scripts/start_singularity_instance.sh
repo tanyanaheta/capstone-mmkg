@@ -33,8 +33,8 @@ TMPDIR=${TMPDIR:-/tmp}
 # By default, it is defined as overlay-temp.ext3, but you may
 # re-define it to some other value by setting an environment variable
 # before calling this script.
-mkdir -p overlays
-TMP_OVERLAY=${TMP_OVERLAY:-/overlays/overlay-temp.ext3}
+mkdir -p /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays
+TMP_OVERLAY=${TMP_OVERLAY:-/scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays/overlay-temp.ext3}
 TMP_OVERLAY_SOURCE=${TMP_OVERLAY_SOURCE:-overlay-5GB-3.2M.ext3}
 
 
@@ -71,10 +71,9 @@ fi
 
 echo "creating singularity instance"
 singularity instance start --containall --no-home -B $HOME/.ssh -B /scratch -B $PWD --nv \
-    --overlay /overlays/overlay-temp.ext3 \
-    --overlay /overlays/overlay-base.ext3:ro \
-    --overlay /overlays/overlay-packages.ext3:ro \
-#    --overlay $DATA_DIRECTORY/zillow.sqsh:ro \
+    --overlay /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays/overlay-temp.ext3 \
+    --overlay /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays/overlay-base.ext3:ro \
+    --overlay /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays/overlay-packages.ext3:ro \
     $IMAGE ${INSTANCE_NAME}
    
 

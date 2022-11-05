@@ -20,8 +20,8 @@ ADDITIONAL_PACKAGES_OVERLAY=overlay-1GB-400K.ext3
 echo "Extracting additional package overlay"
 cp $OVERLAY_DIRECTORY/$ADDITIONAL_PACKAGES_OVERLAY.gz .
 gunzip $ADDITIONAL_PACKAGES_OVERLAY.gz
-mkdir -p overlays
-mv $ADDITIONAL_PACKAGES_OVERLAY /overlays/overlay-packages.ext3
+mkdir -p /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays
+mv $ADDITIONAL_PACKAGES_OVERLAY /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays/overlay-packages.ext3
 
 # We now execute the commands to install the packages that we need.
 echo "Installing additional packages"
