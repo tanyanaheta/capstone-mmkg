@@ -1,4 +1,4 @@
 #!/bin/bash
-./create_base_overlay.sh
-./create_package_overlay.sh
-./start_singularity_instance.sh
+export PROJECT_ROOT=${PWD}
+./scripts/create_base_overlay.sh
+./scripts/create_package_overlay.sh

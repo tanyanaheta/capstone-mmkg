@@ -19,11 +19,11 @@ BASE_PACKAGES_OVERLAY=overlay-15GB-500K.ext3
 # This first overlay file will contain the base
 # packages that already exist in the container
 # but in a location we can modify
+mkdir -p $PROJECT_ROOT/overlays
 echo "Extracting base package overlay"
-cp $OVERLAY_DIRECTORY/$BASE_PACKAGES_OVERLAY.gz .
-gunzip $BASE_PACKAGES_OVERLAY.gz
-mkdir -p /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays
-mv $BASE_PACKAGES_OVERLAY /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays/overlay-base.ext3
+cp $OVERLAY_DIRECTORY/$BASE_PACKAGES_OVERLAY.gz $PROJECT_ROOT/overlays/
+gunzip $PROJECT_ROOT/overlays/$BASE_PACKAGES_OVERLAY.gz
+mv $PROJECT_ROOT/overlays/$BASE_PACKAGES_OVERLAY $PROJECT_ROOT/overlays/overlay-base.ext3
 
 
 # We execute the required commands to obtain a minimal
@@ -39,7 +39,7 @@ mv $BASE_PACKAGES_OVERLAY /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-
 #
 echo "Cloning base packages into overlay"
 singularity exec --containall --no-home --bind $HOME/.ssh \
-    --overlay overlay-base.ext3 \
+    --overlay $PROJECT_ROOT/overlays/overlay-base.ext3 \
     $IMAGE_DIRECTORY/pytorch_22.08-py3.sif /bin/bash << 'EOF'
 conda create --prefix /ext3/conda/zillow_MMKG --clone base
 conda init bash
