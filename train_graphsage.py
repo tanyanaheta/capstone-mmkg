@@ -25,10 +25,10 @@ def to_bidirected_with_reverse_mapping(g):
     )
     c = g_simple.edata["count"]
     num_edges = g.num_edges()
-    mapping_offset = torch.arange(g_simple.num_edges(), dtype=g_simple.idtype)
-    
+    mapping_offset = torch.zeros(g_simple.num_edges() + 1, dtype=g_simple.idtype)
+    mapping_offset[1:] = c.cumsum(0)
     idx = mapping.argsort()
-    idx_uniq = idx[mapping_offset]
+    idx_uniq = idx[mapping_offset[:-1]]
     reverse_idx = torch.where(
         idx_uniq >= num_edges, idx_uniq - num_edges, idx_uniq + num_edges
     )
