@@ -4,10 +4,13 @@ run:
 build:
 	@./scripts/layer_setup.sh
 
+sing:
+	@./scripts/start_singularity_instance.sh
+
 getnode:
 	@./launch_job.sh getnode.slurm
 
 clean:
-	@rm /scripts/overlays/overlay-*
+	@rm -r ./scripts/overlays
 
 rebuild: clean build

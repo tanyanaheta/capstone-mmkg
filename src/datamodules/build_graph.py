@@ -236,15 +236,5 @@ def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_b
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--org", type=str)
-    parser.add_argument("--new_edge_mode", "-n", type=int)
-    parser.add_argument("--sim_threshold", type=float)
-    parser.add_argument("--new_edges_batch_size", type=int)
 
-    args = parser.parse_args()
-
-    # org = args.org
-    # print('org',org)
-
-    main_wrapper(org=args.org, new_edge_mode='images', sim_threshold=0.95, new_edges_batch_size=500)
+    main_wrapper(org='zillow')

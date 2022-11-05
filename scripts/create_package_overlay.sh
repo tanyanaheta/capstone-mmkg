@@ -26,8 +26,8 @@ mv $ADDITIONAL_PACKAGES_OVERLAY /scratch/$USER/projects/NYU-Zillow-Capstone-2022
 # We now execute the commands to install the packages that we need.
 echo "Installing additional packages"
 singularity exec --containall --no-home -B $HOME/.ssh \
-    --overlay overlay-packages.ext3 \
-    --overlay overlay-base.ext3:ro \
+    --overlay /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays/overlay-packages.ext3 \
+    --overlay /scratch/$USER/projects/NYU-Zillow-Capstone-2022-Team-A/scripts/overlays/overlay-base.ext3:ro \
     $IMAGE_DIRECTORY/pytorch_22.08-py3.sif /bin/bash << 'EOF'
 source ~/.bashrc
 conda activate /ext3/conda/zillow_MMKG
