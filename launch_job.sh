@@ -11,16 +11,17 @@ mkdir -p logs
 JOB_ID=$(sbatch --job-name=$JOB_NAME --export=INSTANCE_NAME=$JOB_NAME $SCRIPT | awk '{print $NF}')
 echo "Submitted batch job $JOB_ID"
 while true
-do
-    if [[ -f "logs/${JOB_NAME}_${JOB_ID}.err" ]]
+do 
+    is_alive=$(squeue -u $USER -o "%i" | grep "$JOB_ID" )
+    if [[ ! $is_alive ]] 
     then
-        if ! squeue -u $USER -o "%i" | grep "$JOB_ID"
+        echo "Error:"
+        if [[ -f "logs/${JOB_NAME}_${JOB_ID}.err" ]]
         then
             echo
-            echo "Error:"
             tail "logs/${JOB_NAME}_${JOB_ID}.err"
-            exit 0
         fi
+        exit 0
     fi
     if squeue -u $USER -o "%i %T" | grep "$JOB_ID RUNNING"
     then

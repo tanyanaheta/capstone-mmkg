@@ -1,3 +1,9 @@
+model:
+  n_layers: 3
+  hidden_dim: 256
+  sage_conv_method: 'mean'
+  dropout: 0
+
 coco:
   root: "../../coco"
   partition: "val2017"
@@ -9,16 +15,19 @@ clip:
   model_id: "openai/clip-vit-base-patch32"
 
 data:
-  zillow_root: '../graph/zillow_graph_csv'
-  coco_graph_root: "../graph/coco_csv"
+  zillow_root: 'graph/zillow_graph_csv'
+  coco_graph_root: "graph/coco_csv"
   coco_root: 'coco_csv'
   coco_partition: "val2017"
   zillow: 
+    path: data/zillow/zillow_graph_csv
     image_embeds: '../../zillow_data/image_embed.joblib'
     keyword_embeds: '../../zillow_data/keyword_embed.joblib'
     scene_embeds: '../../zillow_data/scene_embed.joblib'
     connections: '../../zillow_data/NYU_photoboard_file.csv'
   mscoco:
+    path: "/coco"
+    partition: "val2017"
     image_embeds: '../../coco/coco_image_embeddings.pt'
     keyword_embeds: '../../coco/coco_tag_embeddings.pt'
     connections: '../../coco/image_text_data.csv'
@@ -39,8 +48,3 @@ training:
   batch_size: 1024
   learning_rate: 0.0005
 
-model:
-  n_layers: 3
-  hidden_dim: 256
-  sage_conv_method: 'mean'
-  dropout: 0

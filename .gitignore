@@ -4,6 +4,7 @@ logs/
 outputs/
 overlays/
 lightning_logs/
+data/
 
 */*graph_csv
 graph_csv
