@@ -1,4 +1,5 @@
 #! /bin/bash
+export PROJECT_ROOT=${PWD}
 
 set -e
 

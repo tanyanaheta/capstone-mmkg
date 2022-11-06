@@ -13,4 +13,10 @@ getnode: env
 clean:
 	@rm -f ./overlays/overlay-*
 
+sing:
+	@./scripts/start_singularity_instance.sh
+
+getnode:
+	@./launch_job.sh getnode.slurm
+
 rebuild: clean build
