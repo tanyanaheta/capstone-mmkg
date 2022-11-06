@@ -81,7 +81,35 @@ def load_mscoco_nodes(cfg : DictConfig):
     return node_dicts
 
 
-def get_all_graph_edges(cfg : DictConfig, org='coco', scenes=False):
+def get_all_graph_nodes(node_dicts):
+    '''
+    Use nodes_table() method from graph_utils to build a table of node IDs from
+    all modalities, plus train / val / test masks and node features (embeddings)
+    '''
+
+    nodes_table_modals = pd.DataFrame()
+    modal_node_ids = {}
+    
+    for modal in node_dicts:
+        nodes_table_modals = pd.concat([nodes_table_modals, graph_utils.nodes_table(modal, node_dicts[modal])])
+        modal_node_ids[modal] = list(node_dicts[modal].keys())
+    
+    nodes_table_modals = nodes_table_modals.drop_duplicates(subset='node_id').reset_index(drop=True)
+
+    new_node_ids = np.arange(len(nodes_table_modals))
+    
+    new_old_node_id_mapping = dict(zip(new_node_ids.tolist(), nodes_table_modals['node_id'].to_numpy().tolist()))
+    old_new_node_id_mapping = {v: k for k, v in new_old_node_id_mapping.items()}
+    
+    for modal in tqdm(node_dicts, desc='storing node categories'):
+        modal_node_ids[modal] = [old_new_node_id_mapping[node_id] for node_id in node_dicts[modal].keys()]
+    
+    nodes_table_modals['node_id'] = new_node_ids
+
+    return nodes_table_modals, new_old_node_id_mapping, modal_node_ids
+
+
+def get_all_graph_edges(cfg : DictConfig, new_old_node_id_mapping, org='coco', scenes=False):
     if org == 'coco':
         node_links = pd.read_csv(cfg.data.mscoco.connections)
         scenes = False
@@ -97,6 +125,10 @@ def get_all_graph_edges(cfg : DictConfig, org='coco', scenes=False):
     node_links[dst_id] = node_links[dst_id].apply(lambda x: literal_eval(x)) # convert dst_ids (loaded from csv in string format) to list format
     edges = graph_utils.edges_table(node_links, src_id, dst_id)
 
+    old_new_node_id_mapping = {v: k for k, v in new_old_node_id_mapping.items()}
+    edges['dst_id'] = edges['dst_id'].apply(lambda x: old_new_node_id_mapping[x])
+    edges['src_id'] = edges['src_id'].apply(lambda x: old_new_node_id_mapping[x])
+
     if scenes == True:
         dst_id = 'scene_hash'
         edges = pd.concat([edges, graph_utils.edges_table(node_links, src_id, dst_id)])
@@ -104,22 +136,6 @@ def get_all_graph_edges(cfg : DictConfig, org='coco', scenes=False):
     edges = edges.drop_duplicates().reset_index(drop=True)
     
     return edges
-
-
-def get_all_graph_nodes(node_dicts):
-    '''
-    Use nodes_table() method from graph_utils to build a table of node IDs from
-    all modalities, plus train / val / test masks and node features (embeddings)
-    '''
-
-    nodes_table_modals = pd.DataFrame()
-    
-    for modal in node_dicts:
-        nodes_table_modals = pd.concat([nodes_table_modals, graph_utils.nodes_table(modal, node_dicts[modal])])
-    
-    nodes_table_modals = nodes_table_modals.drop_duplicates(subset='node_id').reset_index(drop=True)
-
-    return nodes_table_modals
 
 
 def get_modal_embeds(modal, node_dicts):
@@ -150,7 +166,7 @@ def get_modal_embeds(modal, node_dicts):
     return modal_embeds, hash_ids
 
 
-def get_new_edges(modal_embeds, hash_ids, sim_threshold, batch_size=500):
+def get_new_edges(modal_embeds, new_old_node_id_mapping, hash_ids, sim_threshold, batch_size=500):
     new_edges = pd.DataFrame(columns=['src_id', 'dst_id'])
 
     for i in tqdm(range(0, len(modal_embeds), batch_size), desc='getting new similarity-based edges'):
@@ -171,6 +187,10 @@ def get_new_edges(modal_embeds, hash_ids, sim_threshold, batch_size=500):
         new_edges = pd.concat([new_edges, edges_to_add])
     
     new_edges = new_edges.explode('dst_id').dropna().drop_duplicates().reset_index(drop=True)
+    
+    old_new_node_id_mapping = {v: k for k, v in new_old_node_id_mapping.items()}
+    new_edges['dst_id'] = new_edges['dst_id'].apply(lambda x: old_new_node_id_mapping[x])
+    new_edges['src_id'] = new_edges['src_id'].apply(lambda x: old_new_node_id_mapping[x])
 
     return new_edges
 
@@ -195,8 +215,14 @@ def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_b
         else:
             raise ValueError(f'Expected org input of "coco" or "zillow", got {org}')
         
-        nodes_table = get_all_graph_nodes(node_dicts)
-        edges_table = get_all_graph_edges(cfg, org=org)
+        nodes_table, new_old_node_id_mapping, modal_node_ids = get_all_graph_nodes(node_dicts)
+        with open(graph_location + "new_old_node_id_mapping.json", "w") as outfile:
+            json.dump(new_old_node_id_mapping, outfile)
+        
+        with open(graph_location + 'modal_node_ids.json', 'w') as outfile:
+            json.dump(modal_node_ids, outfile)
+
+        edges_table = get_all_graph_edges(cfg, new_old_node_id_mapping, org=org)
 
         if new_edge_mode == 'images' or new_edge_mode == 'keywords':
             if sim_threshold == None:
