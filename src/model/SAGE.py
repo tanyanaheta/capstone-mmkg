@@ -21,18 +21,18 @@ class SAGE(nn.Module):
     def __init__(
         self,
         in_dim,
-        h_dim=256,
+        #h_dim=256,
         n_layers=3,
         activation=F.relu,
         dropout=0,
         sage_conv_method="mean",
     ):
         super().__init__()
-        self.init(in_dim, h_dim, n_layers, activation, dropout, sage_conv_method)
+        self.init(in_dim, n_layers, activation, dropout, sage_conv_method)
 
     def init(self, in_dim, h_dim, n_layers, activation, dropout, sage_conv_method):
         self.n_layers = n_layers
-        self.h_dim = h_dim
+        self.h_dim = in_dim
 
         self.layers = nn.ModuleList()
         self.layers.append(dglnn.SAGEConv(in_dim, h_dim, sage_conv_method))
