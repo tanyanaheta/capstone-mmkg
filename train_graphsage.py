@@ -205,7 +205,7 @@ class DataModule(LightningDataModule):
             self.sampler,
             exclude="reverse_id",
             reverse_eids=self.reverse_eids,
-            negative_sampler=NegativeSampler(self.g, 1)
+            negative_sampler=NegativeSampler(self.g, 5, self.max_img_id)
             # negative_sampler=dgl.dataloading.negative_sampler.PerSourceUniform(5),
         )
 
@@ -215,7 +215,7 @@ class DataModule(LightningDataModule):
             sampler,
             device=self.device,
             batch_size=self.batch_size,
-            shuffle=False,
+            shuffle=True,
             drop_last=False,
             # num_workers=self.num_workers,
         )
