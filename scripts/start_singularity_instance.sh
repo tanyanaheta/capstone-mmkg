@@ -33,8 +33,9 @@ TMPDIR=${TMPDIR:-/tmp}
 # By default, it is defined as overlay-temp.ext3, but you may
 # re-define it to some other value by setting an environment variable
 # before calling this script.
-mkdir -p $PROJECT_ROOT/overlays
-TMP_OVERLAY=${TMP_OVERLAY:-$PROJECT_ROOT/overlays/overlay-temp.ext3}
+export PROJECT_ROOT=$PWD
+mkdir -p $PROJECT_ROOT/scripts/overlays
+TMP_OVERLAY=${TMP_OVERLAY:-$PROJECT_ROOT/scripts/overlays/overlay-temp.ext3}
 TMP_OVERLAY_SOURCE=${TMP_OVERLAY_SOURCE:-overlay-5GB-3.2M.ext3}
 
 
@@ -71,9 +72,9 @@ fi
 
 echo "creating singularity instance"
 singularity instance start --containall --no-home -B $HOME/.ssh -B /scratch -B $PWD --nv \
-    --overlay $PROJECT_ROOT/overlays/overlay-temp.ext3 \
-    --overlay $PROJECT_ROOT/overlays/overlay-base.ext3:ro \
-    --overlay $PROJECT_ROOT/overlays/overlay-packages.ext3:ro \
+    --overlay $PROJECT_ROOT/scripts/overlays/overlay-temp.ext3 \
+    --overlay $PROJECT_ROOT/scripts/overlays/overlay-base.ext3:ro \
+    --overlay $PROJECT_ROOT/scripts/overlays/overlay-packages.ext3:ro \
     $IMAGE ${INSTANCE_NAME}
    
 
