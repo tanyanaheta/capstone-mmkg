@@ -1,5 +1,5 @@
 #! /bin/bash
-export PROJECT_ROOT=${PWD}
+export PROJECT_ROOT=$PWD
 
 set -e
 
@@ -18,17 +18,17 @@ ADDITIONAL_PACKAGES_OVERLAY=overlay-1GB-400K.ext3
 # We will install our own packages in an additional overlay
 # So that we can easily reinstall packages as needed without
 # having to clone the base environment again.
-mkdir -p $PROJECT_ROOT/overlays
+mkdir -p $PROJECT_ROOT/scripts/overlays
 echo "Extracting additional package overlay"
-cp $OVERLAY_DIRECTORY/$ADDITIONAL_PACKAGES_OVERLAY.gz $PROJECT_ROOT/overlays/
-gunzip $PROJECT_ROOT/overlays/$ADDITIONAL_PACKAGES_OVERLAY.gz
-mv $PROJECT_ROOT/overlays/$ADDITIONAL_PACKAGES_OVERLAY $PROJECT_ROOT/overlays/overlay-packages.ext3
+cp $OVERLAY_DIRECTORY/$ADDITIONAL_PACKAGES_OVERLAY.gz .
+gunzip $ADDITIONAL_PACKAGES_OVERLAY.gz
+mv $ADDITIONAL_PACKAGES_OVERLAY $PROJECT_ROOT/scripts/overlays/overlay-packages.ext3
 
 # We now execute the commands to install the packages that we need.
 echo "Installing additional packages"
 singularity exec --containall --no-home -B $HOME/.ssh \
-    --overlay $PROJECT_ROOT/overlays/overlay-packages.ext3 \
-    --overlay $PROJECT_ROOT/overlays/overlay-base.ext3:ro \
+    --overlay $PROJECT_ROOT/scripts/overlays/overlay-packages.ext3 \
+    --overlay $PROJECT_ROOT/scripts/overlays/overlay-base.ext3:ro \
     $IMAGE_DIRECTORY/pytorch_22.08-py3.sif /bin/bash << 'EOF'
 source ~/.bashrc
 conda activate /ext3/conda/zillow_MMKG
