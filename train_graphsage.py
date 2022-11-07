@@ -1,5 +1,6 @@
 import argparse
 import os
+import json
 
 import dgl
 import dgl.function as fn
@@ -137,6 +138,7 @@ class DataModule(LightningDataModule):
     def __init__(
         self,
         csv_dataset_root,
+        modal_node_ids_file,
         data_cpu=False,
         fan_out=[10, 25],
         device="cpu",
@@ -148,16 +150,19 @@ class DataModule(LightningDataModule):
         self.save_hyperparameters()
         dataset = dgl.data.CSVDataset(csv_dataset_root, force_reload=force_reload)
         g = dataset[0]
-        g, reverse_eids = to_bidirected_with_reverse_mapping(g)
+        g_bid, reverse_eids = to_bidirected_with_reverse_mapping(g)
         # g = g.formats(["csc"])
+        g_bid = g_bid.to(device)
         g = g.to(device)
         reverse_eids = reverse_eids.to(device)
         # seed_edges = torch.arange(g.num_edges()).to(device)
 
-        train_nid = torch.nonzero(g.ndata["train_mask"], as_tuple=True)[0].to(device)
-        val_nid = torch.nonzero(g.ndata["val_mask"], as_tuple=True)[0].to(device)
+        max_img_id = max(json.load(open(modal_node_ids_file, 'r'))['images'])
+
+        train_nid = torch.nonzero(g_bid.ndata["train_mask"], as_tuple=True)[0].to(device)
+        val_nid = torch.nonzero(g_bid.ndata["val_mask"], as_tuple=True)[0].to(device)
         test_nid = torch.nonzero(
-            ~(g.ndata["train_mask"] | g.ndata["val_mask"]), as_tuple=True
+            ~(g_bid.ndata["train_mask"] | g_bid.ndata["val_mask"]), as_tuple=True
         )[0].to(device)
 
         sampler = dgl.dataloading.MultiLayerNeighborSampler(
@@ -165,25 +170,27 @@ class DataModule(LightningDataModule):
         )
 
         self.g = g
+        self.g_bid = g_bid
         self.train_nid, self.val_nid, self.test_nid = train_nid, val_nid, test_nid
         self.sampler = sampler
         self.device = device
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.in_dim = g.ndata["feat"].shape[1]
+        self.in_dim = g_bid.ndata["feat"].shape[1]
         self.reverse_eids = reverse_eids
+        self.max_img_id = max_img_id
 
     def train_dataloader(self):
         sampler = dgl.dataloading.as_edge_prediction_sampler(
             self.sampler,
             exclude="reverse_id",
             reverse_eids=self.reverse_eids,
-            negative_sampler=NegativeSampler(self.g, 5)
+            negative_sampler=NegativeSampler(self.g, 5, self.max_img_id)
             # negative_sampler=dgl.dataloading.negative_sampler.PerSourceUniform(5),
         )
 
         return dgl.dataloading.DataLoader(
-            self.g,
+            self.g_bid,
             self.train_nid,
             sampler,
             device=self.device,
@@ -203,7 +210,7 @@ class DataModule(LightningDataModule):
         )
 
         return dgl.dataloading.DataLoader(
-            self.g,
+            self.g_bid,
             self.val_nid,
             sampler,
             device=self.device,
@@ -245,7 +252,10 @@ def evaluate(cfg):
     else:
         device = "cuda"
     datamodule = DataModule(
-        cfg.data.zillow_root, device=device, batch_size=cfg.training.batch_size
+        cfg.data.zillow_root, 
+        cfg.data.zillow_root+'/modal_node_ids.json',
+        device=device, 
+        batch_size=cfg.training.batch_size
     )
     model = SAGELightning(
         datamodule.in_dim,
