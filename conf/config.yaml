@@ -7,7 +7,7 @@ model:
 coco:
   root: "../../coco"
   partition: "val2017"
-  batch_size: 1024
+  batch_size: 256
   num_workers: 8
 
 clip:
@@ -21,10 +21,10 @@ data:
   coco_partition: "val2017"
   zillow: 
     path: data/zillow/zillow_graph_csv
-    image_embeds: '../../zillow_data/image_embed.joblib'
-    keyword_embeds: '../../zillow_data/keyword_embed.joblib'
-    scene_embeds: '../../zillow_data/scene_embed.joblib'
-    connections: '../../zillow_data/NYU_photoboard_file.csv'
+    image_embeds: 'data/zillow/image_embed.joblib'
+    keyword_embeds: 'data/zillow/keyword_embed.joblib'
+    scene_embeds: 'data/zillow/scene_embed.joblib'
+    connections: 'data/zillow/NYU_photoboard_file.csv'
   mscoco:
     path: "/coco"
     partition: "val2017"
@@ -35,7 +35,7 @@ data:
 graph:
   zillow:
     dataset_name: 'zillow_graph'
-    graph_dir: '../../graph/zillow_graph_csv/'
+    graph_dir: 'graph/zillow_graph_csv/'
     edges: 'zillow_edges.csv'
     nodes: 'zillow_nodes.csv'
   mscoco:
@@ -47,4 +47,5 @@ graph:
 training:
   batch_size: 1024
   learning_rate: 0.0005
+  n_epochs: 20
 
