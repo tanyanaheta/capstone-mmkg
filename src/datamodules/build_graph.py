@@ -215,6 +215,9 @@ def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_b
         else:
             raise ValueError(f'Expected org input of "coco" or "zillow", got {org}')
         
+        if not os.path.exists(graph_location):
+            os.mkdir(graph_location)
+        
         nodes_table, new_old_node_id_mapping, modal_node_ids = get_all_graph_nodes(node_dicts)
         with open(graph_location + "new_old_node_id_mapping.json", "w") as outfile:
             json.dump(new_old_node_id_mapping, outfile)
@@ -237,10 +240,6 @@ def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_b
             raise ValueError('Invalid new_edge_mode input, expected "images" or "keywords" or None')
         
         # Store graph csv files
-
-        if not os.path.exists(graph_location):
-            os.mkdir(graph_location)
-
         edges_table.to_csv(graph_location + edges_filename, index=False)
         nodes_table.to_csv(graph_location + nodes_filename, index=False)
 
@@ -263,4 +262,4 @@ def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_b
 
 if __name__ == "__main__":
 
-    main_wrapper(org='zillow')
+    main_wrapper(org='coco')
