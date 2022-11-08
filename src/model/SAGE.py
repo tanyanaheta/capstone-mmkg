@@ -4,6 +4,7 @@ import dgl.nn as dglnn
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from functools import partial
 import tqdm
 from dgl import AddSelfLoop
 from dgl.data import CiteseerGraphDataset, CoraGraphDataset, PubmedGraphDataset
@@ -35,19 +36,32 @@ class SAGE(nn.Module):
         self.h_dim = h_dim
 
         self.layers = nn.ModuleList()
-        self.layers.append(dglnn.SAGEConv(in_dim, h_dim, sage_conv_method))
+        self.layers.append(
+            dglnn.SAGEConv(
+                in_dim, 
+                h_dim, 
+                sage_conv_method, 
+                feat_drop=dropout, 
+                norm=partial(F.normalize, p=2, dim=-1),
+                activation=activation
+            )
+        )
         for i in range(1, n_layers):
-            self.layers.append(dglnn.SAGEConv(h_dim, h_dim, sage_conv_method))
-        self.dropout = nn.Dropout(dropout)
-        self.activation = activation
+            self.layers.append(
+                    dglnn.SAGEConv(
+                        in_dim, 
+                        h_dim, 
+                        sage_conv_method, 
+                        feat_drop=dropout, 
+                        norm=partial(F.normalize, p=2, dim=-1),
+                        activation=activation                        
+                    )
+                )
 
     def forward(self, blocks, x):
         h = x
         for l, (layer, block) in enumerate(zip(self.layers, blocks)):
             h = layer(block, h)
-            if l != len(self.layers) - 1:
-                h = self.activation(h)
-                h = self.dropout(h)
         return h
 
     def inference(

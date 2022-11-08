@@ -6,12 +6,14 @@ import dgl
 import dgl.function as fn
 import hydra
 import numpy as np
+import pyrootutils
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchmetrics import MeanMetric
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
+from torchmetrics import MeanMetric
+from torchmetrics.classification import BinaryAUROC, BinaryAveragePrecision
 
 from src.datamodules.negative_sampler import NegativeSampler
 from src.model.SAGE import SAGE
@@ -75,6 +77,8 @@ class SAGELightning(LightningModule):
         self.val_positive_distance = MeanMetric()
         self.val_negative_distance = MeanMetric()
 
+        self.BinaryAUROC = BinaryAUROC(thresholds=None)
+        self.BinaryAveragePrecision = BinaryAveragePrecision(thresholds=None)
     def forward(self, graph, blocks, x):
         self.module(graph, blocks, x)
 
@@ -90,15 +94,15 @@ class SAGELightning(LightningModule):
         neg_label = torch.zeros_like(neg_score)
         labels = torch.cat([pos_label, neg_label])
         loss = F.binary_cross_entropy_with_logits(score, labels)
-        self.train_loss(loss)
-        self.log(
-            "train_loss",
-            self.train_loss,
-            prog_bar=True,
-            on_step=True,
-            on_epoch=False,
-            batch_size=self.batch_size,
-        )
+        # self.train_loss(loss)
+        # self.log(
+        #     "train_loss",
+        #     self.train_loss,
+        #     prog_bar=True,
+        #     on_step=True,
+        #     on_epoch=False,
+        #     batch_size=self.batch_size,
+        # )
 
         return loss
 
@@ -109,11 +113,18 @@ class SAGELightning(LightningModule):
         pos_score = self.predictor(pos_graph, logits)
         neg_score = self.predictor(neg_graph, logits)
 
+        scores = torch.cat([pos_score, neg_score])
+        pos_label = torch.ones_like(pos_score)
+        neg_label = torch.zeros_like(neg_score)
+        labels = torch.cat([pos_label, neg_label])
+
         self.val_positive_distance(pos_score)
         self.val_negative_distance(neg_score)
+        self.BinaryAUROC(scores, labels)
+        self.BinaryAveragePrecision(scores, labels)
 
         self.log(
-            "mean_val_posititve_distance",
+            "mean_val_positive_score",
             self.val_positive_distance,
             prog_bar=True,
             on_step=False,
@@ -121,13 +132,30 @@ class SAGELightning(LightningModule):
             batch_size=self.batch_size,
         )
         self.log(
-            "mean_val_negative_distance",
+            "mean_val_negative_score",
             self.val_negative_distance,
             prog_bar=True,
             on_step=False,
             on_epoch=True,
             batch_size=self.batch_size,
         )
+
+        self.log(
+            "BinaryAUROC",
+            self.BinaryAUROC,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=self.batch_size
+        )
+        self.log(
+            "BinaryAveragePrecision",
+            self.BinaryAveragePrecision,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=self.batch_size
+            )
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
@@ -185,7 +213,7 @@ class DataModule(LightningDataModule):
             self.sampler,
             exclude="reverse_id",
             reverse_eids=self.reverse_eids,
-            negative_sampler=NegativeSampler(self.g, 5, self.max_img_id)
+            negative_sampler=NegativeSampler(self.g, 1, self.max_img_id)
             # negative_sampler=dgl.dataloading.negative_sampler.PerSourceUniform(5),
         )
 
@@ -205,7 +233,7 @@ class DataModule(LightningDataModule):
             self.sampler,
             exclude="reverse_id",
             reverse_eids=self.reverse_eids,
-            negative_sampler=NegativeSampler(self.g, 5, self.max_img_id)
+            negative_sampler=NegativeSampler(self.g, 1, self.max_img_id)
             # negative_sampler=dgl.dataloading.negative_sampler.PerSourceUniform(5),
         )
 
@@ -228,19 +256,23 @@ def train(cfg):
     else:
         device = "cuda"
     datamodule = DataModule(
-        cfg.data.zillow_root, device=device, batch_size=cfg.training.batch_size
+        cfg.data.zillow_root, 
+        cfg.data.zillow_root+'/modal_node_ids.json',
+        device=device, 
+        batch_size=cfg.training.batch_size
     )
     model = SAGELightning(
         datamodule.in_dim,
         cfg.model.hidden_dim,
         n_layers=cfg.model.n_layers,
         batch_size=cfg.training.batch_size,
+        sage_conv_method=cfg.model.sage_conv_method
     )
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="mean_val_negative_distance", save_top_k=1, mode="max"
+        monitor="BinaryAveragePrecision", save_top_k=1, mode="max"
     )
-    trainer = Trainer(accelerator="gpu", max_epochs=10, callbacks=[checkpoint_callback])
+    trainer = Trainer(accelerator="gpu", max_epochs=cfg.training.n_epochs, callbacks=[checkpoint_callback])
 
     trainer.fit(model, datamodule=datamodule)
 
@@ -270,7 +302,58 @@ def evaluate(cfg):
 
     trainer.test(model, dataloaders=dataloader)
 
+@hydra.main(config_name="config", config_path="conf", version_base=None)
+def baseline(cfg):
+    if not torch.cuda.is_available():
+        device = "cpu"
+    else:
+        device = "cuda"
+
+    root = pyrootutils.setup_root(__file__, pythonpath=True)
+    datamodule = DataModule(
+        cfg.data.zillow_root, 
+        cfg.data.zillow_root+'/modal_node_ids.json',
+        device=device, 
+        batch_size=cfg.training.batch_size
+    )
+    predictor = ScorePredictor()
+
+    mean_pos_score = MeanMetric().to(device)
+    mean_neg_score = MeanMetric().to(device)
+    AUROC = BinaryAUROC(thresholds=None)
+    BAP = BinaryAveragePrecision(thresholds=None)
+
+    AUROCs = []
+    BAPs   = []
+
+    dataloader = datamodule.val_dataloader()
+    for input_nodes, pos_graph, neg_graph, blocks in dataloader:
+        x = blocks[1].dstdata["feat"]
+        # neg_graph = dgl.graph((neg_graph.edges()), num_nodes=pos_graph.num_nodes())
+        pos_score = predictor(pos_graph, x)
+        neg_score = predictor(neg_graph, x)
+
+        mean_pos_score(pos_score)
+        mean_neg_score(neg_score)
+
+        scores = torch.cat([pos_score, neg_score])
+        pos_label = torch.ones_like(pos_score)
+        neg_label = torch.zeros_like(neg_score)
+        labels = torch.cat([pos_label, neg_label])
+
+        AUROCs.append(AUROC(scores, labels).item())
+        BAPs.append(BAP(scores, labels).item())
+        # break
+    print("Baseline: ")
+    print(f"Mean AUROC: {np.mean(AUROCs)}")
+    print(f"Mean BinaryAveragePrecision: {np.mean(BAPs)}")
+    print(f"Mean Positive Edge Score: {mean_pos_score.compute()}")
+    print(f"Mean Negative Edge Score: {mean_neg_score.compute()}")
+    print()
+
+
 
 if __name__ == "__main__":
     train()
+    baseline()
     print("Done")
