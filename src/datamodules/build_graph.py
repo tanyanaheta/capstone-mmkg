@@ -67,8 +67,8 @@ def load_mscoco_nodes(cfg : DictConfig):
     Same type of output as load_zillow_data but for MSCOCO data.
     '''
 
-    image_embeds = torch.load(cfg.data.mscoco.image_embeds).numpy()
-    keyword_embeds = torch.load(cfg.data.mscoco.keyword_embeds).numpy()
+    image_embeds = torch.load(cfg.data.mscoco.image_embeds).cpu().detach().numpy()
+    keyword_embeds = torch.load(cfg.data.mscoco.keyword_embeds).cpu().detach().numpy()
 
     image_ids = np.arange(len(image_embeds))
     keyword_ids = np.arange(len(image_ids), len(image_ids)+len(keyword_embeds))
