@@ -12,7 +12,9 @@ from PIL import Image
 @hydra.main(version_base=None, config_path="../../conf", config_name="config")
 def main(cfg):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
+    print('#'*40)
+    print('device:', device)
+    print('#'*40)
     tokenizer = CLIPTokenizerFast.from_pretrained(cfg.clip.model_id)
     processor = CLIPProcessor.from_pretrained(cfg.clip.model_id)
     model = CLIPModel.from_pretrained(cfg.clip.model_id).to(device)
@@ -48,7 +50,7 @@ def main(cfg):
                 images_tensor = torch.cat((images_tensor, batch_emb), dim=0)
 
         for tag in tqdm(tags, desc='encoding tags'):
-            inputs = tokenizer(tag, return_tensors="pt")
+            inputs = tokenizer(tag, return_tensors="pt").to(device)
             tag_emb = model.get_text_features(**inputs)
 
             if tags_tensor is None:

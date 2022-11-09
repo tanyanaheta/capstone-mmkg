@@ -6,8 +6,8 @@ model:
 
 coco:
   root: "../../coco"
-  partition: "val2017"
-  batch_size: 256
+  partition: "train2017"
+  batch_size: 512
   num_workers: 8
 
 clip:
@@ -16,7 +16,7 @@ clip:
 
 data:
   zillow_root: 'graph/zillow_graph_csv'
-  coco_graph_root: "graph/coco_csv"
+  coco_graph_root: "graph/coco_graph_csv"
   coco_root: 'coco_csv'
   coco_partition: "val2017"
   zillow: 

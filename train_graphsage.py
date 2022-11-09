@@ -233,7 +233,7 @@ class DataModule(LightningDataModule):
             self.sampler,
             exclude="reverse_id",
             reverse_eids=self.reverse_eids,
-            negative_sampler=NegativeSampler(self.g, 10, self.max_img_id)
+            negative_sampler=NegativeSampler(self.g, 1, self.max_img_id)
             # negative_sampler=dgl.dataloading.negative_sampler.PerSourceUniform(5),
         )
 
