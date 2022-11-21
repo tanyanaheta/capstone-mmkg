@@ -9,6 +9,7 @@ from ast import literal_eval
 import argparse
 
 import hydra
+import pyrootutils
 from omegaconf import DictConfig, OmegaConf
 import torch
 import pydantic
@@ -88,23 +89,20 @@ def get_all_graph_nodes(node_dicts):
     '''
 
     nodes_table_modals = pd.DataFrame()
-    modal_node_ids = {}
+    modal_type_map = {'images': 0, 'keywords': 1, 'scenes': 2}
     
     for modal in node_dicts:
-        nodes_table_modals = pd.concat([nodes_table_modals, graph_utils.nodes_table(modal, node_dicts[modal])])
-        modal_node_ids[modal] = list(node_dicts[modal].keys())
+        nodes_table_modals = pd.concat([nodes_table_modals, graph_utils.nodes_table(modal, node_dicts[modal], modal_type_map)])
     
-    nodes_table_modals = nodes_table_modals.drop_duplicates(subset='node_id').reset_index(drop=True)
-
+    nodes_table_modals = nodes_table_modals.drop_duplicates(subset='node_id', keep='last').reset_index(drop=True)
+    
     new_node_ids = np.arange(len(nodes_table_modals))
-    
     new_old_node_id_mapping = dict(zip(new_node_ids.tolist(), nodes_table_modals['node_id'].to_numpy().tolist()))
-    old_new_node_id_mapping = {v: k for k, v in new_old_node_id_mapping.items()}
-    
-    for modal in tqdm(node_dicts, desc='storing node categories'):
-        modal_node_ids[modal] = [old_new_node_id_mapping[node_id] for node_id in node_dicts[modal].keys()]
-    
     nodes_table_modals['node_id'] = new_node_ids
+    
+    modal_node_ids = {'images': nodes_table_modals[nodes_table_modals['ntype']==0]['node_id'].values.tolist(), 
+                      'keywords': nodes_table_modals[nodes_table_modals['ntype']==1]['node_id'].values.tolist(), 
+                      'scenes': nodes_table_modals[nodes_table_modals['ntype']==2]['node_id'].values.tolist()}
 
     return nodes_table_modals, new_old_node_id_mapping, modal_node_ids
 
@@ -131,7 +129,11 @@ def get_all_graph_edges(cfg : DictConfig, new_old_node_id_mapping, org='coco', s
 
     if scenes == True:
         dst_id = 'scene_hash'
-        edges = pd.concat([edges, graph_utils.edges_table(node_links, src_id, dst_id)])
+        scene_edges = graph_utils.edges_table(node_links, src_id, dst_id)
+        scene_edges['dst_id'] = scene_edges['dst_id'].apply(lambda x: old_new_node_id_mapping[x])
+        scene_edges['src_id'] = scene_edges['src_id'].apply(lambda x: old_new_node_id_mapping[x])
+        
+        edges = pd.concat([edges, scene_edges])
     
     edges = edges.drop_duplicates().reset_index(drop=True)
     
@@ -195,7 +197,7 @@ def get_new_edges(modal_embeds, new_old_node_id_mapping, hash_ids, sim_threshold
     return new_edges
 
 
-def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_batch_size=500):
+def main_wrapper(org='zillow', new_edge_mode=None, sim_threshold=None, new_edges_batch_size=500):
     @hydra.main(version_base=None, config_path='../../conf', config_name='config')
     def graph_builder(cfg):
         if org == 'coco':
@@ -206,7 +208,7 @@ def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_b
             nodes_filename = cfg.graph.mscoco.nodes
         
         elif org == 'zillow':
-            node_dicts = load_zillow_nodes(cfg)
+            node_dicts = load_zillow_nodes(cfg, scenes=True)
             graph_location = cfg.graph.zillow.graph_dir
             graph_name = cfg.graph.zillow.dataset_name
             edges_filename = cfg.graph.zillow.edges
@@ -219,13 +221,13 @@ def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_b
             os.mkdir(graph_location)
         
         nodes_table, new_old_node_id_mapping, modal_node_ids = get_all_graph_nodes(node_dicts)
-        with open(graph_location + "new_old_node_id_mapping.json", "w") as outfile:
+        with open(os.path.join(graph_location, "new_old_node_id_mapping.json"), "w") as outfile:
             json.dump(new_old_node_id_mapping, outfile)
         
-        with open(graph_location + 'modal_node_ids.json', 'w') as outfile:
+        with open(os.path.join(graph_location, 'modal_node_ids.json'), 'w') as outfile:
             json.dump(modal_node_ids, outfile)
 
-        edges_table = get_all_graph_edges(cfg, new_old_node_id_mapping, org=org)
+        edges_table = get_all_graph_edges(cfg, new_old_node_id_mapping, org=org, scenes=True)
 
         if new_edge_mode == 'images' or new_edge_mode == 'keywords':
             if sim_threshold == None:
@@ -240,8 +242,8 @@ def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_b
             raise ValueError('Invalid new_edge_mode input, expected "images" or "keywords" or None')
         
         # Store graph csv files
-        edges_table.to_csv(graph_location + edges_filename, index=False)
-        nodes_table.to_csv(graph_location + nodes_filename, index=False)
+        edges_table.to_csv(os.path.join(graph_location, edges_filename), index=False)
+        nodes_table.to_csv(os.path.join(graph_location, nodes_filename), index=False)
 
         g_metadata = {
             'dataset_name': graph_name,
@@ -249,10 +251,10 @@ def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_b
             'node_data': [{'file_name': nodes_filename}]
         }
 
-        with open(graph_location + 'meta.yaml', 'w') as file:
+        with open(os.path.join(graph_location, 'meta.yaml'), 'w') as file:
             yaml.dump(g_metadata, file)
         
-        graph_dataset = dgl.data.CSVDataset(graph_location)
+        graph_dataset = dgl.data.CSVDataset(graph_location, force_reload=True)
         
         print('Finished building graph:')
         print(graph_dataset[0])
@@ -261,5 +263,13 @@ def main_wrapper(org='coco', new_edge_mode=None, sim_threshold=None, new_edges_b
 
 
 if __name__ == "__main__":
-
-    main_wrapper(org='coco')
+    root_path = pyrootutils.find_root(search_from=__file__, indicator=".git")
+    print('Set WD location to', root_path)
+    pyrootutils.set_root(
+        path=root_path,
+        project_root_env_var=True,
+        dotenv=True,
+        pythonpath=True,
+        cwd=True
+    )
+    main_wrapper(org='zillow')

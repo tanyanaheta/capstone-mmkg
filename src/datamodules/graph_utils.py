@@ -14,13 +14,19 @@ def get_train_val_test_masks(node_ids):
     return train_val_test_masks
 
 
-def nodes_table(modal, modal_dict):
+def nodes_table(modal, modal_dict, modal_type_map):
     node_ids = list(modal_dict.keys())
+    print(f'modal {modal} count: {len(node_ids)}')
     nodes = pd.DataFrame({'node_id': list(node_ids)})
-    train_val_test_masks = get_train_val_test_masks(node_ids)
-    nodes[['train_mask', 'val_mask', 'test_mask']] = train_val_test_masks
+
+    if modal == 'images':
+        train_val_test_masks = get_train_val_test_masks(node_ids)    
+    else:
+        train_val_test_masks = np.ones((len(node_ids), 3))
     
+    nodes[['train_mask', 'val_mask', 'test_mask']] = train_val_test_masks
     tqdm.pandas(desc=f'formatting {modal} node embeddings')
+    nodes['ntype'] = [modal_type_map[modal]]*len(nodes)
     nodes['feat'] = nodes['node_id'].progress_apply(lambda x: ', '.join([str(y) for y in modal_dict[x].tolist()]))
 
     return nodes
@@ -30,10 +36,11 @@ def edges_table(node_links, src_col, dest_col):
     edges = node_links[[src_col, dest_col]]
     dest_is_list = (edges.applymap(type) == list)[dest_col].iloc[0]
     if dest_is_list == True:
-        edges = edges.explode(dest_col)\
-                     .dropna(subset=dest_col)\
-                     .rename(columns={src_col: 'src_id', dest_col: 'dst_id'})\
-                     .reset_index(drop=True)
+        edges = edges.explode(dest_col)
+                     
+    edges = edges.dropna(subset=dest_col)\
+                 .rename(columns={src_col: 'src_id', dest_col: 'dst_id'})\
+                 .reset_index(drop=True)
     
     return edges
 
