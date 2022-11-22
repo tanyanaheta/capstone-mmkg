@@ -283,7 +283,7 @@ def train(cfg):
         device=device, 
         batch_size=cfg.training.batch_size
     )
-    
+
     model = SAGELightning(
         datamodule.in_dim,
         cfg.model.hidden_dim,
@@ -293,7 +293,7 @@ def train(cfg):
     )
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="BinaryAveragePrecision", save_top_k=1, mode="max"
+        monitor="mean_val_positive_score", save_top_k=1, mode="max"
     )
     trainer = Trainer(accelerator="gpu", max_epochs=cfg.training.n_epochs, callbacks=[checkpoint_callback])
 
@@ -308,7 +308,8 @@ def evaluate(cfg):
         device = "cuda"
     datamodule = DataModule(
         cfg.data.zillow_root, 
-        cfg.data.zillow_root+'/modal_node_ids.json',
+        os.path.join(cfg.data.zillow_root, 'modal_node_ids.json'),
+        keyword_as_src=False,
         device=device, 
         batch_size=cfg.training.batch_size
     )
@@ -320,9 +321,7 @@ def evaluate(cfg):
     )
 
     trainer = Trainer(accelerator="gpu")
-
     dataloader = datamodule.val_dataloader()
-
     trainer.test(model, dataloaders=dataloader)
 
 @hydra.main(config_name="config", config_path="conf", version_base=None)
@@ -335,7 +334,8 @@ def baseline(cfg):
     root = pyrootutils.setup_root(__file__, pythonpath=True)
     datamodule = DataModule(
         cfg.data.zillow_root, 
-        cfg.data.zillow_root+'/modal_node_ids.json',
+        os.path.join(cfg.data.zillow_root, 'modal_node_ids.json'),
+        keyword_as_src=False,
         device=device, 
         batch_size=cfg.training.batch_size
     )
