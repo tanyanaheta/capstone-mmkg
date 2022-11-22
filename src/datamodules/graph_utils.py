@@ -22,7 +22,7 @@ def nodes_table(modal, modal_dict, modal_type_map):
     if modal == 'images':
         train_val_test_masks = get_train_val_test_masks(node_ids)    
     else:
-        train_val_test_masks = np.ones((len(node_ids), 3))
+        train_val_test_masks = np.ones((len(node_ids), 3), dtype=bool)
     
     nodes[['train_mask', 'val_mask', 'test_mask']] = train_val_test_masks
     tqdm.pandas(desc=f'formatting {modal} node embeddings')
