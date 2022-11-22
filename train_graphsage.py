@@ -75,10 +75,10 @@ class SAGELightning(LightningModule):
 
         self.train_loss = MeanMetric()
         self.val_positive_distance = MeanMetric()
-        self.val_negative_distance = MeanMetric()
+        # self.val_negative_distance = MeanMetric()
 
-        self.BinaryAUROC = BinaryAUROC(thresholds=None)
-        self.BinaryAveragePrecision = BinaryAveragePrecision(thresholds=None)
+        # self.BinaryAUROC = BinaryAUROC(thresholds=None)
+        # self.BinaryAveragePrecision = BinaryAveragePrecision(thresholds=None)
     def forward(self, graph, blocks, x):
         self.module(graph, blocks, x)
 
@@ -111,17 +111,17 @@ class SAGELightning(LightningModule):
         x = blocks[0].srcdata["feat"]
         logits = self.module(blocks, x)
         pos_score = self.predictor(pos_graph, logits)
-        neg_score = self.predictor(neg_graph, logits)
+        # neg_score = self.predictor(neg_graph, logits)
 
-        scores = torch.cat([pos_score, neg_score])
+        # scores = torch.cat([pos_score, neg_score])
         pos_label = torch.ones_like(pos_score)
-        neg_label = torch.zeros_like(neg_score)
-        labels = torch.cat([pos_label, neg_label])
+        # neg_label = torch.zeros_like(neg_score)
+        # labels = torch.cat([pos_label, neg_label])
 
         self.val_positive_distance(pos_score)
-        self.val_negative_distance(neg_score)
-        self.BinaryAUROC(scores, labels)
-        self.BinaryAveragePrecision(scores, labels)
+        # self.val_negative_distance(neg_score)
+        # self.BinaryAUROC(scores, labels)
+        # self.BinaryAveragePrecision(scores, labels)
 
         self.log(
             "mean_val_positive_score",
@@ -131,31 +131,31 @@ class SAGELightning(LightningModule):
             on_epoch=True,
             batch_size=self.batch_size,
         )
-        self.log(
-            "mean_val_negative_score",
-            self.val_negative_distance,
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-            batch_size=self.batch_size,
-        )
+        # self.log(
+        #     "mean_val_negative_score",
+        #     self.val_negative_distance,
+        #     prog_bar=True,
+        #     on_step=False,
+        #     on_epoch=True,
+        #     batch_size=self.batch_size,
+        # )
 
-        self.log(
-            "BinaryAUROC",
-            self.BinaryAUROC,
-            prog_bar=True,
-            on_epoch=True,
-            on_step=False,
-            batch_size=self.batch_size
-        )
-        self.log(
-            "BinaryAveragePrecision",
-            self.BinaryAveragePrecision,
-            prog_bar=True,
-            on_epoch=True,
-            on_step=False,
-            batch_size=self.batch_size
-            )
+        # self.log(
+        #     "BinaryAUROC",
+        #     self.BinaryAUROC,
+        #     prog_bar=True,
+        #     on_epoch=True,
+        #     on_step=False,
+        #     batch_size=self.batch_size
+        # )
+        # self.log(
+        #     "BinaryAveragePrecision",
+        #     self.BinaryAveragePrecision,
+        #     prog_bar=True,
+        #     on_epoch=True,
+        #     on_step=False,
+        #     batch_size=self.batch_size
+        #     )
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
@@ -167,6 +167,7 @@ class DataModule(LightningDataModule):
         self,
         csv_dataset_root,
         modal_node_ids_file,
+        keyword_as_src=False,
         data_cpu=False,
         fan_out=[10, 25],
         device="cpu",
@@ -179,11 +180,9 @@ class DataModule(LightningDataModule):
         dataset = dgl.data.CSVDataset(csv_dataset_root, force_reload=force_reload)
         g = dataset[0]
         g_bid, reverse_eids = to_bidirected_with_reverse_mapping(g)
-        # g = g.formats(["csc"])
         g_bid = g_bid.to(device)
         g = g.to(device)
         reverse_eids = reverse_eids.to(device)
-        # seed_edges = torch.arange(g.num_edges()).to(device)
 
         max_img_id = max(json.load(open(modal_node_ids_file, 'r'))['images'])
 
@@ -207,45 +206,67 @@ class DataModule(LightningDataModule):
         self.in_dim = g_bid.ndata["feat"].shape[1]
         self.reverse_eids = reverse_eids
         self.max_img_id = max_img_id
+        self.keyword_as_src = keyword_as_src
+
 
     def train_dataloader(self):
-        sampler = dgl.dataloading.as_edge_prediction_sampler(
+        edge_sampler = dgl.dataloading.as_edge_prediction_sampler(
             self.sampler,
-            exclude="reverse_id",
+            exclude='reverse_id',
             reverse_eids=self.reverse_eids,
-            negative_sampler=NegativeSampler(self.g, 1, self.max_img_id)
-            # negative_sampler=dgl.dataloading.negative_sampler.PerSourceUniform(5),
+            negative_sampler=NegativeSampler(self.g, 1, self.max_img_id, self.keyword_as_src)
         )
+
+        train_subgraph = self.g_bid.subgraph(self.train_nid)
+        train_u, train_v = train_subgraph.edges()
+        train_eids = train_subgraph.edata['_ID'][train_subgraph.edge_ids(train_u, train_v)]
 
         return dgl.dataloading.DataLoader(
             self.g_bid,
-            self.train_nid,
-            sampler,
+            train_eids,
+            edge_sampler,
             device=self.device,
             batch_size=self.batch_size,
             shuffle=True,
-            drop_last=False,
-            # num_workers=self.num_workers,
+            drop_last=False
         )
 
     def val_dataloader(self):
-        sampler = dgl.dataloading.as_edge_prediction_sampler(
+        edge_sampler = dgl.dataloading.as_edge_prediction_sampler(
             self.sampler,
-            exclude="reverse_id",
-            reverse_eids=self.reverse_eids,
-            negative_sampler=NegativeSampler(self.g, 1, self.max_img_id)
-            # negative_sampler=dgl.dataloading.negative_sampler.PerSourceUniform(5),
         )
+
+        val_subgraph = self.g_bid.subgraph(self.val_nid)
+        val_u, val_v = val_subgraph.edges()
+        val_eids = val_subgraph.edata['_ID'][val_subgraph.edge_ids(val_u, val_v)]
 
         return dgl.dataloading.DataLoader(
             self.g_bid,
-            self.val_nid,
-            sampler,
+            val_eids,
+            edge_sampler,
+            device=self.device,
+            batch_size=self.batch_size,
+            shuffle=False,
+            drop_last=False
+        )
+    
+    def test_dataloader(self):
+        edge_sampler = dgl.dataloading.as_edge_prediction_sampler(
+            self.sampler
+        )
+
+        test_subgraph = self.g_bid.subgraph(self.test_nid)
+        test_u, test_v = test_subgraph.edges()
+        test_eids = test_subgraph.edata['_ID'][test_subgraph.edge_ids(test_u, test_v)]
+
+        return dgl.dataloading.DataLoader(
+            self.g_bid,
+            test_eids,
+            edge_sampler,
             device=self.device,
             batch_size=self.batch_size,
             shuffle=True,
-            drop_last=False,
-            # num_workers=self.num_workers,
+            drop_last=False
         )
 
 
@@ -257,10 +278,12 @@ def train(cfg):
         device = "cuda"
     datamodule = DataModule(
         cfg.data.zillow_root, 
-        cfg.data.zillow_root+'/modal_node_ids.json',
+        os.path.join(cfg.data.zillow_root,'modal_node_ids.json'),
+        keyword_as_src=False,
         device=device, 
         batch_size=cfg.training.batch_size
     )
+    
     model = SAGELightning(
         datamodule.in_dim,
         cfg.model.hidden_dim,
