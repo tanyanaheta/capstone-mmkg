@@ -31,6 +31,12 @@ data:
     image_embeds: 'coco/coco_image_embeddings.pt'
     keyword_embeds: 'coco/coco_tag_embeddings.pt'
     connections: 'coco/image_text_data.csv'
+  zillow_val:
+    path: data/zillow_val/zillow_graph_csv
+    image_embeds: data/zillow_val/object_detect_image_embed.joblib
+    keyword_embeds: data/zillow_val/object_detect_keyword_embed.joblib  
+    scene_embeds: data/zillow_val/object_detect_scene_embed.joblib
+    connections: data/zillow_val/nyu_object_dataset.csv
 
 graph:
   zillow:
@@ -43,6 +49,11 @@ graph:
     graph_dir: 'graph/coco_graph_csv'
     edges: 'coco_edges.csv'
     nodes: 'coco_nodes.csv'
+  zillow_val:
+    dataset_name: 'zillow_val_graph'
+    graph_dir: 'graph/zillow_val_graph_csv'
+    edges: 'zillow_val_edges.csv'
+    nodes: 'zillow_val_nodes.csv'
 
 training:
   batch_size: 1024
