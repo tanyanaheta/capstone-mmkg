@@ -22,10 +22,10 @@ class SAGE(nn.Module):
     def __init__(
         self,
         in_dim,
-        h_dim=256,
+        h_dim=512,
         n_layers=3,
         activation=F.relu,
-        dropout=0,
+        dropout=0.1,
         sage_conv_method="mean",
     ):
         super().__init__()

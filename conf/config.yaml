@@ -2,7 +2,12 @@ model:
   n_layers: 3
   hidden_dim: 512
   sage_conv_method: 'mean'
-  dropout: 0
+  dropout: 0.2
+
+training:
+  batch_size: 1024
+  learning_rate: 0.05
+  n_epochs: 5
 
 coco:
   root: "../../coco"
@@ -44,8 +49,5 @@ graph:
     edges: 'coco_edges.csv'
     nodes: 'coco_nodes.csv'
 
-training:
-  batch_size: 1024
-  learning_rate: 0.0005
-  n_epochs: 20
+
 

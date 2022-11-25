@@ -16,7 +16,6 @@ def get_train_val_test_masks(node_ids):
 
 def nodes_table(modal, modal_dict, modal_type_map):
     node_ids = list(modal_dict.keys())
-    print(f'modal {modal} count: {len(node_ids)}')
     nodes = pd.DataFrame({'node_id': list(node_ids)})
 
     if modal == 'images':

@@ -217,29 +217,30 @@ def main_wrapper(org='zillow', new_edge_mode=None, sim_threshold=None, new_edges
         else:
             raise ValueError(f'Expected org input of "coco" or "zillow", got {org}')
         
+        nodes_table, new_old_node_id_mapping, modal_node_ids = get_all_graph_nodes(node_dicts)
+        edges_table = get_all_graph_edges(cfg, new_old_node_id_mapping, org=org, scenes=True)
+        
+        if new_edge_mode == 'images' or new_edge_mode == 'keywords':
+            if sim_threshold == None:
+                raise ValueError('If new_edge_mode is provided, sim_threshold must be a float between 0 and 1')
+            node_embeds, hash_ids = get_modal_embeds(new_edge_mode, node_dicts)
+            new_edges = get_new_edges(node_embeds, new_old_node_id_mapping, hash_ids, sim_threshold, new_edges_batch_size)
+            print(f'Added {len(new_edges)} new {new_edge_mode} links')
+            
+            edges_table = pd.concat([edges_table, new_edges]).drop_duplicates().reset_index(drop=True)
+            graph_location += f'_{new_edge_mode}_{str(sim_threshold).split(".")[-1]}'
+
+        elif new_edge_mode != None:
+            raise ValueError('Invalid new_edge_mode input, expected "images" or "keywords" or None')
+
         if not os.path.exists(graph_location):
             os.mkdir(graph_location)
         
-        nodes_table, new_old_node_id_mapping, modal_node_ids = get_all_graph_nodes(node_dicts)
         with open(os.path.join(graph_location, "new_old_node_id_mapping.json"), "w") as outfile:
             json.dump(new_old_node_id_mapping, outfile)
         
         with open(os.path.join(graph_location, 'modal_node_ids.json'), 'w') as outfile:
             json.dump(modal_node_ids, outfile)
-
-        edges_table = get_all_graph_edges(cfg, new_old_node_id_mapping, org=org, scenes=True)
-
-        if new_edge_mode == 'images' or new_edge_mode == 'keywords':
-            if sim_threshold == None:
-                raise ValueError('If new_edge_mode is provided, sim_threshold must be a float between 0 and 1')
-            node_embeds, hash_ids = get_modal_embeds(new_edge_mode, node_dicts)
-            new_edges = get_new_edges(node_embeds, hash_ids, sim_threshold, new_edges_batch_size)
-            print(f'Added {len(new_edges)} new {new_edge_mode} links')
-            
-            edges_table = pd.concat([edges_table, new_edges]).drop_duplicates().reset_index(drop=True)
-
-        elif new_edge_mode != None:
-            raise ValueError('Invalid new_edge_mode input, expected "images" or "keywords" or None')
         
         # Store graph csv files
         edges_table.to_csv(os.path.join(graph_location, edges_filename), index=False)
@@ -272,4 +273,5 @@ if __name__ == "__main__":
         pythonpath=True,
         cwd=True
     )
-    main_wrapper(org='zillow')
+    #main_wrapper(org='zillow')
+    main_wrapper(org='zillow', new_edge_mode='images', sim_threshold=0.975)
