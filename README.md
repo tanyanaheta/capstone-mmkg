@@ -67,43 +67,43 @@ After following instructions as laid out above, your scratch/[username] director
     │   │   scene_embed.joblib **(UPLOADED)**
     │   
     └───src
-        |
-        └───datamodules
-                      |
-                      └───build_graph
-                      |
-                      └───cnnx_experiment
-                      |
-                      └─── ...
+    |   |
+    |   └───datamodules
+    |                 |
+    |                 └───build_graph
+    |                 |
+    |                 └───cnnx_experiment
+    |                 |
+    |                 └─── ...
     │   
     └───notebooks
     │   │   ...  
     │   
     └───graph
-        │           
-        |
-        └───coco_graph_csv
-        |
-        |
-        |
-        └───zillow_graph_csv_images_975
-        |
-        |
-        |
-        └───zillow_verified_graph_csv_images_975
+    |   │           
+    |   |
+    |   └───coco_graph_csv
+    |   |
+    |   |
+    |   |
+    |   └───zillow_graph_csv_images_975
+    |   |
+    |   |
+    |   |
+    |   └───zillow_verified_graph_csv_images_975
     │
     └───data
-        |
-        |
-        └───coco_data
-        |
-        |
-        |
-        └───zillow_data
-        |
-        |
-        |
-        └───zillow_verified_data   
+    |   |
+    |   |
+    |   └───coco_data
+    |   |
+    |   |
+    |   |
+    |   └───zillow_data
+    |   |
+    |   |
+    |   |
+    |   └───zillow_verified_data   
     |
     |
     └───conf
