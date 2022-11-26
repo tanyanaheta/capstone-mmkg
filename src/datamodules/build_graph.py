@@ -175,18 +175,18 @@ def get_all_graph_edges(
     cfg: DictConfig, new_old_node_id_mapping, org="coco", scenes=False
 ):
     if org == "coco":
-        node_links = pd.read_csv(cfg.data.coco_data.connections)
+        node_links = pd.read_csv(cfg.data.coco.connections)
         scenes = False
         src_id, dst_id = ("img_id", "tag_ids")
 
     elif org == "zillow":
-        node_links = pd.read_csv(cfg.data.zillow_data.connections)
+        node_links = pd.read_csv(cfg.data.zillow.connections)
         src_id, dst_id = (
             "url_hash",
             "image_keyword_hash",
         )  # url_hash = img_id, # image_keyword_hash = list of keyword_ids
     elif org == "zillow_verified":
-        node_links = pd.read_csv(cfg.data.zillow_verified_data.connections)
+        node_links = pd.read_csv(cfg.data.zillow_verified.connections)
         src_id, dst_id = (
             "url_hash",
             "image_keyword_hash",
@@ -385,5 +385,5 @@ if __name__ == "__main__":
     )
 
     #main_wrapper(org='zillow')
-    main_wrapper(org='zillow', new_edge_mode='images', sim_threshold=0.975)
+    main_wrapper(org='zillow_verified', new_edge_mode='images', sim_threshold=0.975)
 
