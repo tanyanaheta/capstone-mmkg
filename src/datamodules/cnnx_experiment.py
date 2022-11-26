@@ -667,7 +667,9 @@ def pipeline(method):
     print('--' * 20)
     print('Method :', method)
     print('--' * 20)
+
     device = setup_file()
+    print('Completed : Setup')
     model, datamodule = train_graph(device)
     eval_subgraph, val_subgraph = reconnect_nodes(datamodule, reconnection_method=method, device=device, verbose=True)
     val_sage_link_scores, val_clip_link_scores = graph_inference(eval_subgraph, model, device, verbose=False)
