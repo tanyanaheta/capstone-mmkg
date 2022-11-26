@@ -603,12 +603,16 @@ def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, me
     print('Precision, Recall at Max Recall:\n', clip_metrics[clip_metrics['recall_macro']==clip_metrics['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
     print('Precision, Recall at Max Precision:\n', clip_metrics[clip_metrics['precision_macro']==clip_metrics['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
 
-    filename1 = 'sage_metrics_' + method + '.txt'
-    with open(filename1, 'w') as file:
-        file.write(json.dumps(sage_metrics)) # use `json.loads` to do the reverse
-    filename2 = 'clip_metrics_' + method + '.txt'
-    with open(filename2, 'w') as file:
-        file.write(json.dumps(clip_metrics)) # use `json.loads` to do the reverse
+    try:
+        filename1 = 'sage_metrics_' + method + '.txt'
+        with open(filename1, 'w') as file:
+            file.write(sage_metrics) 
+        filename2 = 'clip_metrics_' + method + '.txt'
+        with open(filename2, 'w') as file:
+            file.write(clip_metrics) 
+        print('WROTE TO FILE')
+    except:
+        print('WRITE TO FILE FAILED')
 
     return sage_metrics, clip_metrics 
 
@@ -660,7 +664,9 @@ def setup_file():
     return device
 
 def pipeline(method):
+    print('--' * 20)
     print('Method :', method)
+    print('--' * 20)
     device = setup_file()
     model, datamodule = train_graph(device)
     eval_subgraph, val_subgraph = reconnect_nodes(datamodule, reconnection_method=method, device=device, verbose=True)
