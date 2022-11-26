@@ -37,15 +37,12 @@ Be sure you've run the following steps in order to work in our singularity insta
 
 From this point, you should have all the dependencies needed to complete development work. If not, please make a note of additional dependencies to add to our scripts/create_package_overlay.sh file.
 
-### Data Organization 
+## Data Organization 
 After following instructions as laid out above, your scratch/[username] directory should be structured as shown below (unimpacted project files omitted):
 
 ```
 [scratch/your_username]
 │
-└───data_zillow **(CREATED)**
-│   │   zillow.sqsh **(CREATED)**
-│   
 └───tmp **(CREATED)**
 │
 └───NYU-Zillow-Capstone-2022-Team-A
@@ -70,14 +67,45 @@ After following instructions as laid out above, your scratch/[username] director
     │   │   scene_embed.joblib **(UPLOADED)**
     │   
     └───src
-    │   │   ...    
+        |
+        └───datamodules
+                      |
+                      └───build_graph
+                      |
+                      └───cnnx_experiment
+                      |
+                      └─── ...
     │   
     └───notebooks
     │   │   ...  
     │   
     └───graph
-    │   │   ...  
-    │   
+        │           
+        |
+        └───coco_graph_csv
+        |
+        |
+        |
+        └───zillow_graph_csv_images_975
+        |
+        |
+        |
+        └───zillow_verified_graph_csv_images_975
+    │
+    └───data
+        |
+        |
+        └───coco_data
+        |
+        |
+        |
+        └───zillow_data
+        |
+        |
+        |
+        └───zillow_verified_data   
+    |
+    |
     └───conf
     
 ```
@@ -102,4 +130,11 @@ Implementing Embedding Inference using the GraphSAGE architecture. Work is done 
 ```
 DGL_to_SAGE.ipynb
 graph_training.py
+```
+
+### Link Prediction + Reconnection Experimentation 
+
+```
+src/datamodules/cnnx_experiment.py
+notebooks/validation_exp_all.ipynb
 ```
