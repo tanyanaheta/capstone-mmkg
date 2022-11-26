@@ -436,6 +436,7 @@ def reconnect_nodes(datamodule, reconnection_method, device, verbose=True):
 
         for eval_val_img_id in tqdm(eval_val_img_ids):
             matching_eval_train_scenes = get_scene_edges(eval_val_img_id, 
+                                                        device, 
                                                         input_graph=datamodule.g_bid, 
                                                         eval_train_scene_ids=eval_train_scene_ids)
             
