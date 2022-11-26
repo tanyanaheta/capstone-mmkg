@@ -523,7 +523,7 @@ def graph_inference(eval_subgraph, model, device, verbose=False):
 
     return val_sage_link_scores, val_clip_link_scores
 
-def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, method):
+def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, method_param):
     # Step 9: Get true labels for each keyword from validation subgraph adjacency matrix
     # Adjacency matrix needs to be sub-setted such that rows correspond only to image nodes and columns correspond only to keyword nodes
     val_img_indices = (val_subgraph.ndata['ntype']==0).nonzero().cpu().reshape(1, -1)
@@ -609,15 +609,8 @@ def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, me
     print('Precision, Recall at Max Precision:\n', clip_metrics[clip_metrics['precision_macro']==clip_metrics['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
 
     try:
-        #filename1 = 'sage_metrics_' + method + '.txt'
-        #with open(filename1, 'w') as file:
-        #    file.write(sage_metrics) 
-        #filename2 = 'clip_metrics_' + method + '.txt'
-        #with open(filename2, 'w') as file:
-        #     file.write(clip_metrics) 
-
-        sage_metrics.to_csv('exprmt_metrics/sage_metrics_' + method + '.csv')
-        clip_metrics.to_csv('exprmt_metrics/clip_metrics_' + method + '.csv')
+        sage_metrics.to_csv('exprmt_metrics/sage_metrics_' + method_param + '.csv')
+        clip_metrics.to_csv('exprmt_metrics/clip_metrics_' + method_param + '.csv')
         print('WROTE TO FILE')
 
     except:
