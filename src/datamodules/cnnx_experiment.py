@@ -291,10 +291,9 @@ class NestedNamespace(SimpleNamespace):
                 self.__setattr__(key, value)
 
 
-def train_graph(device, reconnection_method):
+def train_graph(device, reconnection_method, org):
     # Vanilla Graph Training
     cfg = NestedNamespace(yaml.load(open('conf/config.yaml'), Loader=Loader))
-    org = 'zillow'
     pre_connect_threshold = 0.975
     connect_type = f'_images_{str(pre_connect_threshold).split(".")[-1]}' if reconnection_method in ['cosine', 'scene'] else ''
 
@@ -523,7 +522,7 @@ def graph_inference(eval_subgraph, model, device, verbose=False):
 
     return val_sage_link_scores, val_clip_link_scores
 
-def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, method_param):
+def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, method_param, org_param):
     # Step 9: Get true labels for each keyword from validation subgraph adjacency matrix
     # Adjacency matrix needs to be sub-setted such that rows correspond only to image nodes and columns correspond only to keyword nodes
     val_img_indices = (val_subgraph.ndata['ntype']==0).nonzero().cpu().reshape(1, -1)
@@ -609,8 +608,16 @@ def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, me
     print('Precision, Recall at Max Precision:\n', clip_metrics[clip_metrics['precision_macro']==clip_metrics['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
 
     try:
-        sage_metrics.to_csv('exprmt_metrics/sage_metrics_' + method_param + '.csv')
-        clip_metrics.to_csv('exprmt_metrics/clip_metrics_' + method_param + '.csv')
+        sage_metrics.to_csv('exprmt_metrics/sage_metrics_' + 
+                             method_param + 
+                             '_' + 
+                             org_param + 
+                             '.csv')
+        clip_metrics.to_csv('exprmt_metrics/clip_metrics_' + 
+                             method_param + 
+                             '_' +
+                             org_param +
+                             '.csv')
         print('WROTE TO FILE')
 
     except:
@@ -665,7 +672,7 @@ def setup_file():
 
     return device
 
-def pipeline(method):
+def pipeline(method, org):
     print('--' * 20)
     print('Reconnection Method :', method)
     print('--' * 20)
@@ -674,7 +681,7 @@ def pipeline(method):
     print('--' * 20)
     print('Completed : Setup')
     print('--' * 20)    
-    model, datamodule = train_graph(device, method)
+    model, datamodule = train_graph(device, method, org)
     print('--' * 20)
     print('Completed : Graph Training')
     print('--' * 20)  
@@ -696,22 +703,28 @@ def pipeline(method):
     compute_metrics(val_subgraph, 
                     val_sage_link_scores, 
                     val_clip_link_scores, 
-                    method)
+                    method,
+                    org)
 
     print('--' * 20)
     print('Completed Pipeline for: ', method)
     print('--' * 20)  
+    print('')
+    print('')
+    print('')
+    print('')
 
 def main(args):
 
     method = args[0]
+    org = args[1]
 
     if method == 'all':
         print('--' * 20)
         print('RUNNING BOTH METHODS')
         print('--' * 20)
-        pipeline('cosine')
-        pipeline('scene')
+        pipeline('cosine', org)
+        pipeline('scene', org)
     else:
         pipeline(method)
 
