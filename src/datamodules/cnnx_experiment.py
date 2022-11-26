@@ -125,11 +125,10 @@ class DataModule(LightningDataModule):
 
         max_img_id = max(json.load(open(modal_node_ids_file, 'r'))['images'])
 
-        train_nid = torch.nonzero(g_bid.ndata["train_mask"], as_tuple=True)[0].to(device)
-        val_nid = torch.nonzero(g_bid.ndata["val_mask"], as_tuple=True)[0].to(device)
-        test_nid = torch.nonzero(
-            ~(g_bid.ndata["train_mask"] | g_bid.ndata["val_mask"]), as_tuple=True
-        )[0].to(device)
+        train_nid = torch.nonzero(g_bid.ndata["train_mask"], as_tuple=True)[0].to (device)
+        val_nid = torch. nonzero (g_bid.ndata["val_mask"], as_tuple=True)[0].to(device)
+        test_nid = torch.nonzero (g_bid.ndata["test_mask"], as_tuple=True)[0]. to(device)
+
 
         sampler = dgl.dataloading.MultiLayerNeighborSampler(
             [int(_) for _ in fan_out], prefetch_node_feats=["feat"]
@@ -137,7 +136,9 @@ class DataModule(LightningDataModule):
 
         self.g = g
         self.g_bid = g_bid
-        self.train_nid, self.val_nid, self.test_nid = train_nid, val_nid, test_nid
+        self.train_nid = train_nid
+        self.val_nid = torch.cat((val_nid, test_nid))
+        self.test_nid = test_nid
         self.sampler = sampler
         self.device = device
         self.batch_size = batch_size
@@ -290,16 +291,19 @@ class NestedNamespace(SimpleNamespace):
                 self.__setattr__(key, value)
 
 
-def train_graph(device):
-        # Vanilla Graph Training
+def train_graph(device, reconnection_method):
+    # Vanilla Graph Training
     cfg = NestedNamespace(yaml.load(open('conf/config.yaml'), Loader=Loader))
     org = 'zillow'
-    connect_type = '_images_975'
+    pre_connect_threshold = 0.975
+    connect_type = f'_images_{str(pre_connect_threshold).split(".")[-1]}' if reconnection_method in ['cosine', 'scene'] else ''
 
     if org == 'coco':
         csv_dataset_root = cfg.data.coco_graph_root
     elif org == 'zillow':
-        csv_dataset_root = cfg.data.zillow_root + connect_type
+        csv_dataset_root = cfg.data.zillow_graph_root + connect_type
+    elif org == 'zillow_verified':
+        csv_dataset_root = cfg.data.zillow_verified_graph_root + connect_type
 
     modal_node_ids_file = os.path.join(csv_dataset_root,'modal_node_ids.json')
     datamodule = DataModule(
@@ -604,13 +608,17 @@ def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, me
     print('Precision, Recall at Max Precision:\n', clip_metrics[clip_metrics['precision_macro']==clip_metrics['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
 
     try:
-        filename1 = 'sage_metrics_' + method + '.txt'
-        with open(filename1, 'w') as file:
-            file.write(sage_metrics) 
-        filename2 = 'clip_metrics_' + method + '.txt'
-        with open(filename2, 'w') as file:
-            file.write(clip_metrics) 
+        #filename1 = 'sage_metrics_' + method + '.txt'
+        #with open(filename1, 'w') as file:
+        #    file.write(sage_metrics) 
+        #filename2 = 'clip_metrics_' + method + '.txt'
+        #with open(filename2, 'w') as file:
+        #     file.write(clip_metrics) 
+
+        sage_metrics.to_csv('exprmt_metrics/sage_metrics_' + method + '.csv')
+        clip_metrics.to_csv('exprmt_metrics/clip_metrics_' + method + '.csv')
         print('WROTE TO FILE')
+
     except:
         print('WRITE TO FILE FAILED')
 
@@ -665,15 +673,40 @@ def setup_file():
 
 def pipeline(method):
     print('--' * 20)
-    print('Method :', method)
+    print('Reconnection Method :', method)
     print('--' * 20)
 
     device = setup_file()
+    print('--' * 20)
     print('Completed : Setup')
-    model, datamodule = train_graph(device)
-    eval_subgraph, val_subgraph = reconnect_nodes(datamodule, reconnection_method=method, device=device, verbose=True)
-    val_sage_link_scores, val_clip_link_scores = graph_inference(eval_subgraph, model, device, verbose=False)
-    compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, method)
+    print('--' * 20)    
+    model, datamodule = train_graph(device, method)
+    print('--' * 20)
+    print('Completed : Graph Training')
+    print('--' * 20)  
+    eval_subgraph, val_subgraph = reconnect_nodes(datamodule, 
+                                                  reconnection_method=method, 
+                                                  device=device, 
+                                                  verbose=True)
+    print('--' * 20)
+    print('Completed : Node Reconnection')
+    print('--' * 20)  
+    val_sage_link_scores, val_clip_link_scores = graph_inference(eval_subgraph, 
+                                                                 model, 
+                                                                 device, 
+                                                                 verbose=False)
+    print('--' * 20)
+    print('Completed : Graph Inference')
+    print('--' * 20)            
+
+    compute_metrics(val_subgraph, 
+                    val_sage_link_scores, 
+                    val_clip_link_scores, 
+                    method)
+
+    print('--' * 20)
+    print('Completed Pipeline for: ', method)
+    print('--' * 20)  
 
 def main(args):
 
