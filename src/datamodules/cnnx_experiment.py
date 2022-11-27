@@ -536,7 +536,7 @@ def compute_metrics_preprocess(val_subgraph):
 def predict_top_k(a, k):
     n = len(a)
     mask_array = np.zeros(n, dtype=int)
-    index_arr = np.argpartition(a, -k)[-k:]
+    index_arr = a.argsort()[-k:][::-1]
 
     mask_array[index_arr] = 1
 
@@ -611,6 +611,7 @@ def compute_metrics(val_adj_matrix, val_sage_link_scores, val_clip_link_scores, 
     clip_metrics = sage_clip_metrics[(sage_clip_metrics['method']=='clip')]
 
     print('--' * 20)
+    print('METRICS: SIM THRESHOLD')
     print('--' * 20)
     print('Best SAGE metrics - No Top K: ')
     print('Precision, Recall at Max Recall:\n', sage_metrics[sage_metrics['recall_macro']==sage_metrics['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
@@ -707,8 +708,9 @@ def compute_metrics(val_adj_matrix, val_sage_link_scores, val_clip_link_scores, 
         clip_metrics_k = sage_clip_metrics_k[(sage_clip_metrics_k['method']=='clip')]
 
         print('--' * 20)
+        print('METRICS: TOP K')
         print('--' * 20)
-        print('Best SAGE metrics - No Top K: ')
+        print('Best SAGE metrics: ')
         print('Precision, Recall at Max Recall:\n', sage_metrics_k[sage_metrics_k['recall_macro']==sage_metrics_k['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
         print('Precision, Recall at Max Precision:\n', sage_metrics_k[sage_metrics_k['precision_macro']==sage_metrics_k['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
         print('--' * 20)
@@ -791,33 +793,18 @@ def pipeline(method, org):
     print('Reconnection Method :', method)
     print('--' * 20)
 
-    device = setup_file()
-    print('--' * 20)
-    print('Completed : Setup')
-    print('--' * 20)    
+    device = setup_file() 
     model, datamodule = train_graph(device, method, org)
-    print('--' * 20)
-    print('Completed : Graph Training')
-    print('--' * 20)  
     eval_subgraph, val_subgraph = reconnect_nodes(datamodule, 
                                                   reconnection_method=method, 
                                                   device=device, 
                                                   verbose=True)
-    print('--' * 20)
-    print('Completed : Node Reconnection')
-    print('--' * 20)  
     val_sage_link_scores, val_clip_link_scores = graph_inference(eval_subgraph, 
                                                                  model, 
                                                                  device, 
-                                                                 verbose=False)
-    print('--' * 20)
-    print('Completed : Graph Inference')
-    print('--' * 20)           
+                                                                 verbose=False)    
 
-    val_adj_matrix = compute_metrics_preprocess(val_subgraph) 
-    print('--' * 20)
-    print('Completed : Metrics Preprocessing')
-    print('--' * 20)   
+    val_adj_matrix = compute_metrics_preprocess(val_subgraph)  
 
     k = np.linspace(2, 100, 25)
     compute_metrics(val_adj_matrix, 
@@ -825,8 +812,7 @@ def pipeline(method, org):
                     val_clip_link_scores, 
                     method, 
                     org, 
-                    k=[])
-
+                    k)
 
     print('--' * 20)
     print('Completed Pipeline for: ', method)
