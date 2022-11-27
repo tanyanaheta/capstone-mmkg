@@ -20,28 +20,31 @@ clip:
   model_id: "openai/clip-vit-base-patch32"
 
 data:
-  zillow_root: 'graph/zillow_graph_csv'
-  coco_graph_root: "graph/coco_graph_csv"
-  coco_root: 'coco_csv'
+  zillow_data_root: 'data/zillow_data'
+  zillow_graph_root: 'graph/zillow_graph_csv'
+  zillow_verified_data_root: 'data/zillow_verified_data'
+  zillow_verified_graph_root: 'graph/zillow_verified_graph_csv'
+  coco_graph_root: 'graph/coco_graph_csv'
+  coco_data_root: 'data/coco_data'
   coco_partition: "val2017"
   zillow: 
-    path: data/zillow/zillow_graph_csv
-    image_embeds: 'zillow_data/image_embed.joblib'
-    keyword_embeds: 'zillow_data/keyword_embed.joblib'
-    scene_embeds: 'zillow_data/scene_embed.joblib'
-    connections: 'zillow_data/NYU_photoboard_file.csv'
+    path: data/zillow_data
+    image_embeds: 'data/zillow_data/image_embed.joblib'
+    keyword_embeds: 'data/zillow_data/keyword_embed.joblib'
+    scene_embeds: 'data/zillow_data/scene_embed.joblib'
+    connections: 'data/zillow_data/NYU_photoboard_file.csv'
   mscoco:
-    path: "/coco"
+    path: data/coco_data
     partition: "val2017"
-    image_embeds: 'coco/coco_image_embeddings.pt'
-    keyword_embeds: 'coco/coco_tag_embeddings.pt'
-    connections: 'coco/image_text_data.csv'
-  zillow_val:
-    path: data/zillow_val/zillow_graph_csv
-    image_embeds: data/zillow_val/object_detect_image_embed.joblib
-    keyword_embeds: data/zillow_val/object_detect_keyword_embed.joblib  
-    scene_embeds: data/zillow_val/object_detect_scene_embed.joblib
-    connections: data/zillow_val/nyu_object_dataset.csv
+    image_embeds: 'data/coco_data/coco_image_embeddings.pt'
+    keyword_embeds: 'data/coco_data/coco_tag_embeddings.pt'
+    connections: 'data/coco_data/image_text_data.csv'
+  zillow_verified:
+    path: data/zillow_verified_data
+    image_embeds: data/zillow_verified_data/object_detect_image_embed.joblib
+    keyword_embeds: data/zillow_verified_data/object_detect_keyword_embed.joblib  
+    scene_embeds: data/zillow_verified_data/object_detect_scene_embed.joblib
+    connections: data/zillow_verified_data/nyu_object_dataset.csv
 
 graph:
   zillow:
@@ -54,11 +57,8 @@ graph:
     graph_dir: 'graph/coco_graph_csv'
     edges: 'coco_edges.csv'
     nodes: 'coco_nodes.csv'
-  zillow_val:
-    dataset_name: 'zillow_val_graph'
-    graph_dir: 'graph/zillow_val_graph_csv'
-    edges: 'zillow_val_edges.csv'
-    nodes: 'zillow_val_nodes.csv'
-
-
-
+  zillow_verified:
+    dataset_name: 'zillow_verified_graph'
+    graph_dir: 'graph/zillow_verified_graph_csv'
+    edges: 'zillow_verified_edges.csv'
+    nodes: 'zillow_verified_nodes.csv'

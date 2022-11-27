@@ -125,11 +125,10 @@ class DataModule(LightningDataModule):
 
         max_img_id = max(json.load(open(modal_node_ids_file, 'r'))['images'])
 
-        train_nid = torch.nonzero(g_bid.ndata["train_mask"], as_tuple=True)[0].to(device)
-        val_nid = torch.nonzero(g_bid.ndata["val_mask"], as_tuple=True)[0].to(device)
-        test_nid = torch.nonzero(
-            ~(g_bid.ndata["train_mask"] | g_bid.ndata["val_mask"]), as_tuple=True
-        )[0].to(device)
+        train_nid = torch.nonzero(g_bid.ndata["train_mask"], as_tuple=True)[0].to (device)
+        val_nid = torch. nonzero (g_bid.ndata["val_mask"], as_tuple=True)[0].to(device)
+        test_nid = torch.nonzero (g_bid.ndata["test_mask"], as_tuple=True)[0]. to(device)
+
 
         sampler = dgl.dataloading.MultiLayerNeighborSampler(
             [int(_) for _ in fan_out], prefetch_node_feats=["feat"]
@@ -137,7 +136,9 @@ class DataModule(LightningDataModule):
 
         self.g = g
         self.g_bid = g_bid
-        self.train_nid, self.val_nid, self.test_nid = train_nid, val_nid, test_nid
+        self.train_nid = train_nid
+        self.val_nid = torch.cat((val_nid, test_nid))
+        self.test_nid = test_nid
         self.sampler = sampler
         self.device = device
         self.batch_size = batch_size
@@ -290,16 +291,18 @@ class NestedNamespace(SimpleNamespace):
                 self.__setattr__(key, value)
 
 
-def train_graph(device):
-        # Vanilla Graph Training
+def train_graph(device, reconnection_method, org):
+    # Vanilla Graph Training
     cfg = NestedNamespace(yaml.load(open('conf/config.yaml'), Loader=Loader))
-    org = 'zillow'
-    connect_type = '_images_975'
+    pre_connect_threshold = 0.975
+    connect_type = f'_images_{str(pre_connect_threshold).split(".")[-1]}' if reconnection_method in ['cosine', 'scene'] else ''
 
     if org == 'coco':
         csv_dataset_root = cfg.data.coco_graph_root
     elif org == 'zillow':
-        csv_dataset_root = cfg.data.zillow_root + connect_type
+        csv_dataset_root = cfg.data.zillow_graph_root + connect_type
+    elif org == 'zillow_verified':
+        csv_dataset_root = cfg.data.zillow_verified_graph_root + connect_type
 
     modal_node_ids_file = os.path.join(csv_dataset_root,'modal_node_ids.json')
     datamodule = DataModule(
@@ -432,6 +435,7 @@ def reconnect_nodes(datamodule, reconnection_method, device, verbose=True):
 
         for eval_val_img_id in tqdm(eval_val_img_ids):
             matching_eval_train_scenes = get_scene_edges(eval_val_img_id, 
+                                                        device, 
                                                         input_graph=datamodule.g_bid, 
                                                         eval_train_scene_ids=eval_train_scene_ids)
             
@@ -518,7 +522,7 @@ def graph_inference(eval_subgraph, model, device, verbose=False):
 
     return val_sage_link_scores, val_clip_link_scores
 
-def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, method):
+def compute_metrics_preprocess(val_subgraph):
     # Step 9: Get true labels for each keyword from validation subgraph adjacency matrix
     # Adjacency matrix needs to be sub-setted such that rows correspond only to image nodes and columns correspond only to keyword nodes
     val_img_indices = (val_subgraph.ndata['ntype']==0).nonzero().cpu().reshape(1, -1)
@@ -527,7 +531,18 @@ def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, me
     val_adj_matrix = val_subgraph.adjacency_matrix().to_dense().numpy()
     val_adj_matrix = val_adj_matrix[val_keyword_indices, val_img_indices]
 
+    return val_adj_matrix
 
+def predict_top_k(a, k):
+    n = len(a)
+    mask_array = np.zeros(n, dtype=int)
+    index_arr = a.argsort()[-k:][::-1]
+
+    mask_array[index_arr] = 1
+
+    return mask_array
+
+def compute_metrics(val_adj_matrix, val_sage_link_scores, val_clip_link_scores, method_param, org_param, k=[]):
     # Step 10: Make predictions based on prediction threshold and get precision, recall, and accuracy 
     pred_thresholds = np.linspace(0.1, 0.5, 30)
     sage_clip_metrics = pd.DataFrame()
@@ -595,26 +610,136 @@ def compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, me
     sage_metrics = sage_clip_metrics[(sage_clip_metrics['method']=='sage')]
     clip_metrics = sage_clip_metrics[(sage_clip_metrics['method']=='clip')]
 
-    print('Best SAGE metrics: ')
+    print('--' * 20)
+    print('METRICS: SIM THRESHOLD')
+    print('--' * 20)
+    print('Best SAGE metrics - No Top K: ')
     print('Precision, Recall at Max Recall:\n', sage_metrics[sage_metrics['recall_macro']==sage_metrics['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
     print('Precision, Recall at Max Precision:\n', sage_metrics[sage_metrics['precision_macro']==sage_metrics['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
-
+    print('--' * 20)
     print('Best CLIP metrics: ')
     print('Precision, Recall at Max Recall:\n', clip_metrics[clip_metrics['recall_macro']==clip_metrics['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
     print('Precision, Recall at Max Precision:\n', clip_metrics[clip_metrics['precision_macro']==clip_metrics['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+    print('--' * 20)
+    print('--' * 20)
 
     try:
-        filename1 = 'sage_metrics_' + method + '.txt'
-        with open(filename1, 'w') as file:
-            file.write(sage_metrics) 
-        filename2 = 'clip_metrics_' + method + '.txt'
-        with open(filename2, 'w') as file:
-            file.write(clip_metrics) 
+        sage_metrics.to_csv('exprmt_metrics/sage_metrics_' + 
+                            method_param + 
+                            '_' + 
+                            org_param + 
+                            '.csv')
+        clip_metrics.to_csv('exprmt_metrics/clip_metrics_' + 
+                            method_param + 
+                            '_' +
+                            org_param +
+                            '.csv')
         print('WROTE TO FILE')
+
     except:
         print('WRITE TO FILE FAILED')
 
-    return sage_metrics, clip_metrics 
+    if len(k) > 0:
+        k_thresholds = k
+        sage_clip_metrics_k = pd.DataFrame()
+
+        for k_threshold in tqdm(k_thresholds):
+            k_threshold = int(k_threshold)
+            val_sage_link_predictions = np.apply_along_axis(predict_top_k, 0, val_sage_link_scores, k_threshold)
+            val_clip_link_predictions = np.apply_along_axis(predict_top_k, 0, val_clip_link_scores, k_threshold)
+
+            results_dict_k = {'sage': {'tp': np.empty(len(val_sage_link_predictions)),
+                                    'fp': np.empty(len(val_sage_link_predictions)),
+                                    'fn': np.empty(len(val_sage_link_predictions)),
+                                    'actual_p': np.empty(len(val_sage_link_predictions)),
+                                    'precision': np.empty(len(val_sage_link_predictions)),
+                                    'recall': np.empty(len(val_sage_link_predictions))},
+                            'clip': {'tp': np.empty(len(val_sage_link_predictions)),
+                                    'fp': np.empty(len(val_sage_link_predictions)),
+                                    'fn': np.empty(len(val_sage_link_predictions)),
+                                    'actual_p': np.empty(len(val_sage_link_predictions)),
+                                    'precision': np.empty(len(val_sage_link_predictions)),
+                                    'recall': np.empty(len(val_sage_link_predictions))}}
+
+            weights = np.empty(len(val_sage_link_predictions))
+
+            for i in range(len(val_sage_link_predictions)):
+                sage_tp = np.sum(((val_sage_link_predictions[i]==1)&(val_adj_matrix[i]==1)))
+                sage_fp = np.sum(((val_sage_link_predictions[i]==1)&(val_adj_matrix[i]==0)))
+                sage_fn = np.sum(((val_sage_link_predictions[i]==0)&(val_adj_matrix[i]==1)))
+                sage_p = np.sum(val_sage_link_predictions[i])
+                
+                clip_tp = np.sum(((val_clip_link_predictions[i]==1)&(val_adj_matrix[i]==1)))
+                clip_fp = np.sum(((val_clip_link_predictions[i]==1)&(val_adj_matrix[i]==0)))
+                clip_fn = np.sum(((val_clip_link_predictions[i]==0)&(val_adj_matrix[i]==1)))
+                clip_p = np.sum(val_clip_link_predictions[i])
+
+                true_p = np.sum(val_adj_matrix[i])
+                
+                results_dict_k['sage']['tp'][i] = sage_tp
+                results_dict_k['sage']['fp'][i] = sage_fp
+                results_dict_k['sage']['fn'][i] = sage_fn
+                results_dict_k['sage']['actual_p'][i] = true_p
+                results_dict_k['sage']['precision'][i] = sage_tp / sage_p if sage_p > 0 else 0
+                results_dict_k['sage']['recall'][i] = sage_tp / true_p if true_p > 0 else 0
+
+                results_dict_k['clip']['tp'][i] = clip_tp
+                results_dict_k['clip']['fp'][i] = clip_fp
+                results_dict_k['clip']['fn'][i] = clip_fn
+                results_dict_k['clip']['actual_p'][i] = true_p
+                results_dict_k['clip']['precision'][i] = clip_tp / clip_p if clip_p > 0 else 0
+                results_dict_k['clip']['recall'][i] = clip_tp / true_p if true_p > 0 else 0
+
+                weights[i] = true_p
+
+            weights /= np.sum(weights)
+
+            for method in results_dict_k.keys():
+                row = {'threshold': k_threshold, 'method': method}
+                for metric in results_dict_k[method]:
+                    if metric == 'precision' or metric == 'recall':
+                        row[f'{metric}_micro'] = np.mean(results_dict_k[method][metric]*weights)
+                        row[f'{metric}_macro'] = np.mean(results_dict_k[method][metric])
+                    else:
+                        row[metric] = np.mean(results_dict_k[method][metric])
+                sage_clip_metrics_k = pd.concat([sage_clip_metrics_k, pd.DataFrame([row])], ignore_index=True)
+
+        sage_metrics_k = sage_clip_metrics_k[(sage_clip_metrics_k['method']=='sage')]
+        clip_metrics_k = sage_clip_metrics_k[(sage_clip_metrics_k['method']=='clip')]
+
+        print('--' * 20)
+        print('METRICS: TOP K')
+        print('--' * 20)
+        print('Best SAGE metrics: ')
+        print('Precision, Recall at Max Recall:\n', sage_metrics_k[sage_metrics_k['recall_macro']==sage_metrics_k['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+        print('Precision, Recall at Max Precision:\n', sage_metrics_k[sage_metrics_k['precision_macro']==sage_metrics_k['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+        print('--' * 20)
+        print('Best CLIP metrics: ')
+        print('Precision, Recall at Max Recall:\n', clip_metrics_k[clip_metrics_k['recall_macro']==clip_metrics_k['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+        print('Precision, Recall at Max Precision:\n', clip_metrics_k[clip_metrics_k['precision_macro']==clip_metrics_k['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+        print('--' * 20)
+        print('--' * 20)
+
+        try:
+            sage_metrics_k.to_csv('exprmt_metrics/sage_metrics_topk_' + 
+                                method_param + 
+                                '_' + 
+                                org_param + 
+                                '.csv')
+            clip_metrics_k.to_csv('exprmt_metrics/clip_metrics_top_k' + 
+                                method_param + 
+                                '_' +
+                                org_param +
+                                '.csv')
+            print('WROTE TO FILE - TOP K')
+
+        except:
+            print('WRITE TO FILE FAILED - TOP K')
+
+        return sage_metrics, clip_metrics, sage_metrics_k, clip_metrics_k
+
+    else:
+        return sage_metrics, clip_metrics  
 
 def generate_plots(sage_clip_metrics):
     import matplotlib.pyplot as plt
@@ -663,26 +788,51 @@ def setup_file():
 
     return device
 
-def pipeline(method):
+def pipeline(method, org):
     print('--' * 20)
-    print('Method :', method)
+    print('Reconnection Method :', method)
     print('--' * 20)
-    device = setup_file()
-    model, datamodule = train_graph(device)
-    eval_subgraph, val_subgraph = reconnect_nodes(datamodule, reconnection_method=method, device=device, verbose=True)
-    val_sage_link_scores, val_clip_link_scores = graph_inference(eval_subgraph, model, device, verbose=False)
-    compute_metrics(val_subgraph, val_sage_link_scores, val_clip_link_scores, method)
+
+    device = setup_file() 
+    model, datamodule = train_graph(device, method, org)
+    eval_subgraph, val_subgraph = reconnect_nodes(datamodule, 
+                                                  reconnection_method=method, 
+                                                  device=device, 
+                                                  verbose=True)
+    val_sage_link_scores, val_clip_link_scores = graph_inference(eval_subgraph, 
+                                                                 model, 
+                                                                 device, 
+                                                                 verbose=False)    
+
+    val_adj_matrix = compute_metrics_preprocess(val_subgraph)  
+
+    k = np.linspace(2, 100, 25)
+    compute_metrics(val_adj_matrix, 
+                    val_sage_link_scores, 
+                    val_clip_link_scores, 
+                    method, 
+                    org, 
+                    k)
+
+    print('--' * 20)
+    print('Completed Pipeline for: ', method)
+    print('--' * 20)  
+    print('')
+    print('')
+    print('')
+    print('')
 
 def main(args):
 
     method = args[0]
+    org = args[1]
 
     if method == 'all':
         print('--' * 20)
         print('RUNNING BOTH METHODS')
         print('--' * 20)
-        pipeline('cosine')
-        pipeline('scene')
+        pipeline('cosine', org)
+        pipeline('scene', org)
     else:
         pipeline(method)
 
