@@ -364,6 +364,6 @@ if __name__ == "__main__":
         cwd=True,
     )
 
-    main_wrapper(org='coco')
+    main_wrapper(org='coco', new_edge_mode='images', sim_threshold=0.925)
     #main_wrapper(org='zillow', new_edge_mode='images', sim_threshold=0.975)
 

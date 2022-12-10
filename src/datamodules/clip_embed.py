@@ -1,11 +1,12 @@
 import os
+
 import torch
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from transformers import CLIPTokenizerFast, CLIPProcessor, CLIPModel
 from mscoco import MSCOCODataset
 import pandas as pd
-
+import pyrootutils
 from tqdm import tqdm
 from PIL import Image
 
@@ -66,4 +67,14 @@ def main(cfg):
 
 
 if __name__ == "__main__":
+    root_path = pyrootutils.find_root(search_from=__file__, indicator=".git")
+    print("Set WD location to", root_path)
+    pyrootutils.set_root(
+        path=root_path,
+        project_root_env_var=True,
+        dotenv=True,
+        pythonpath=True,
+        cwd=True,
+    )
+
     main()

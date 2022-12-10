@@ -5,7 +5,18 @@ from PIL import Image
 import os.path
 import pandas as pd
 import numpy as np
+import pyrootutils
 
+
+root_path = pyrootutils.find_root(search_from=__file__, indicator=".git")
+print("Set WD location to", root_path)
+pyrootutils.set_root(
+    path=root_path,
+    project_root_env_var=True,
+    dotenv=True,
+    pythonpath=True,
+    cwd=True,
+)
 
 class MSCOCODataset(VisionDataset):
     """
@@ -30,9 +41,9 @@ class MSCOCODataset(VisionDataset):
         '''
 
         annotations = self.coco.imgToAnns[img_id]
-        category_ids = [annotations[i]['category_id'] for i in range(len(annotations))]
+        category_ids = list(set([annotations[i]['category_id'] for i in range(len(annotations))]))
         category_names = [item['name'] for item in self.coco.loadCats(category_ids)]
-        return [list(set(category_ids)), list(set(category_names))]
+        return [category_ids, category_names]
     
     def get_img_text_data(self):
         '''
