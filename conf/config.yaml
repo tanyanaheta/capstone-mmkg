@@ -1,5 +1,5 @@
 model:
-  n_layers: 3
+  n_layers: 2
   hidden_dim: 512
   sage_conv_method: 'mean'
   dropout: 0.2
