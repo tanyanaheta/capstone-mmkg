@@ -1,5 +1,0 @@
-dataset_name: coco_val_graph
-edge_data:
-- file_name: coco_edges.csv
-node_data:
-- file_name: coco_nodes.csv

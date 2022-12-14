@@ -1,0 +1,249 @@
+----------------------------------------
+RUNNING BOTH METHODS
+----------------------------------------
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+----------------------------------------
+Reconnection Method : cosine
+----------------------------------------
+----------------------------------------
+----------------------------------------
+METRICS: SIM THRESHOLD
+----------------------------------------
+Best SAGE metrics - No Top K: 
+Precision, Recall at Max Recall:
+ threshold          0.100000
+precision_macro    0.133596
+recall_macro       0.944788
+
+Precision, Recall at Max Precision:
+ threshold          0.500000
+precision_macro    0.171263
+recall_macro       0.586345
+
+----------------------------------------
+Best CLIP metrics: 
+Precision, Recall at Max Recall:
+ threshold          0.100000
+precision_macro    0.134025
+recall_macro       1.000000
+
+Precision, Recall at Max Precision:
+ threshold          0.417241
+precision_macro    0.585431
+recall_macro       0.076573
+
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+METRICS: TOP K
+----------------------------------------
+Best SAGE metrics: 
+Precision, Recall at Max Recall:
+ threshold          22.000000
+precision_macro     0.134025
+recall_macro        1.000000
+
+Precision, Recall at Max Precision:
+ threshold          6.000000
+precision_macro    0.321653
+recall_macro       0.582447
+
+----------------------------------------
+Best CLIP metrics: 
+Precision, Recall at Max Recall:
+ threshold          22.000000
+precision_macro     0.134025
+recall_macro        1.000000
+
+Precision, Recall at Max Precision:
+ threshold          2.000000
+precision_macro    0.430517
+recall_macro       0.416805
+
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+METRICS: EVALUATION
+----------------------------------------
+Best SAGE metrics: 
+Precision, Recall at Max Recall:
+ threshold          0.100000
+precision_macro    0.134750
+recall_macro       0.987248
+
+Precision, Recall at Max Precision:
+ threshold          0.606122
+precision_macro    0.194253
+recall_macro       0.467697
+
+----------------------------------------
+Best CLIP metrics: 
+Precision, Recall at Max Recall:
+ threshold          0.100000
+precision_macro    0.134509
+recall_macro       1.000000
+
+Precision, Recall at Max Precision:
+ threshold          0.410204
+precision_macro    0.599448
+recall_macro       0.233521
+
+----------------------------------------
+METRICS: EVALUATION - TOP K
+----------------------------------------
+Best SAGE metrics: 
+Precision, Recall at Max Recall:
+ threshold          22.000000
+precision_macro     0.134509
+recall_macro        1.000000
+
+Precision, Recall at Max Precision:
+ threshold          6.000000
+precision_macro    0.352591
+recall_macro       0.642037
+----------------------------------------
+Best CLIP metrics: 
+Precision, Recall at Max Recall:
+ threshold          22.000000
+precision_macro     0.134509
+recall_macro        1.000000
+
+Precision, Recall at Max Precision:
+ threshold          2.000000
+precision_macro    0.430209
+recall_macro       0.417487
+
+----------------------------------------
+----------------------------------------
+Completed Pipeline for:  cosine
+----------------------------------------
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+----------------------------------------
+Reconnection Method : scene
+----------------------------------------
+----------------------------------------
+----------------------------------------
+METRICS: SIM THRESHOLD
+----------------------------------------
+Best SAGE metrics - No Top K: 
+Precision, Recall at Max Recall:
+ threshold          0.100000
+precision_macro    0.134672
+recall_macro       0.958570
+
+Precision, Recall at Max Precision:
+ threshold          0.168966
+precision_macro    0.135246
+recall_macro       0.898986
+
+----------------------------------------
+Best CLIP metrics: 
+Precision, Recall at Max Recall:
+ threshold          0.100000
+precision_macro    0.134025
+recall_macro       1.000000
+
+Precision, Recall at Max Precision:
+ threshold          0.417241
+precision_macro    0.585431
+recall_macro       0.076573
+
+----------------------------------------
+----------------------------------------
+----------------------------------------
+METRICS: TOP K
+----------------------------------------
+Best SAGE metrics: 
+Precision, Recall at Max Recall:
+ threshold          22.000000
+precision_macro     0.134025
+recall_macro        1.000000
+
+Precision, Recall at Max Precision:
+ threshold          6.000000
+precision_macro    0.134933
+recall_macro       0.283194
+
+----------------------------------------
+Best CLIP metrics: 
+Precision, Recall at Max Recall:
+ threshold          22.000000
+precision_macro     0.134025
+recall_macro        1.000000
+
+Precision, Recall at Max Precision:
+ threshold          2.000000
+precision_macro    0.430517
+recall_macro       0.416805
+----------------------------------------
+----------------------------------------
+----------------------------------------
+METRICS: EVALUATION
+----------------------------------------
+Best SAGE metrics: 
+Precision, Recall at Max Recall:
+ threshold          0.100000
+precision_macro    0.136515
+recall_macro       0.955782
+
+Precision, Recall at Max Precision:
+ threshold          0.638776
+precision_macro    0.253854
+recall_macro       0.290249
+
+---------------------------------------
+Best CLIP metrics: 
+Precision, Recall at Max Recall:
+ threshold          0.100000
+precision_macro    0.134509
+recall_macro       1.000000
+
+Precision, Recall at Max Precision:
+ threshold          0.410204
+precision_macro    0.599448
+recall_macro       0.233521
+
+---------------------------------------
+----------------------------------------
+METRICS: EVALUATION - TOP K
+----------------------------------------
+Best SAGE metrics: 
+Precision, Recall at Max Recall:
+ threshold          22.000000
+precision_macro     0.134509
+recall_macro        1.000000
+
+Precision, Recall at Max Precision:
+ threshold          4.000000
+precision_macro    0.285234
+recall_macro       0.436078
+
+----------------------------------------
+Best CLIP metrics: 
+Precision, Recall at Max Recall:
+ threshold          22.000000
+precision_macro     0.134509
+recall_macro        1.000000
+
+Precision, Recall at Max Precision:
+ threshold          2.000000
+precision_macro    0.430209
+recall_macro       0.417487
+
+----------------------------------------
+Completed Pipeline for:  scene
+----------------------------------------
+----------------------------------------
+Completed Pipeline for:  scene
+----------------------------------------
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -60,7 +60,7 @@ def load_zillow_nodes(cfg: DictConfig, scenes=False):
     return node_dicts
 
 
-def load_zillow_val_nodes(cfg: DictConfig, scenes=False):
+def load_zillow_verified_nodes(cfg: DictConfig, scenes=False):
     """
     Build modal_dicts from zillow validation data with structure:
     {
@@ -76,14 +76,14 @@ def load_zillow_val_nodes(cfg: DictConfig, scenes=False):
     }
     """
 
-    image_embed_dict = joblib.load(cfg.data.zillow_val.image_embeds)
+    image_embed_dict = joblib.load(cfg.data.zillow_verified.image_embeds)
 
-    keyword_embed_dict = joblib.load(cfg.data.zillow_val.keyword_embeds)
+    keyword_embed_dict = joblib.load(cfg.data.zillow_verified.keyword_embeds)
 
     node_dicts = {"images": image_embed_dict, "keywords": keyword_embed_dict}
 
     if scenes == True:
-        scene_embed_dict = joblib.load(cfg.data.zillow_val.scene_embeds)
+        scene_embed_dict = joblib.load(cfg.data.zillow_verified.scene_embeds)
 
         node_dicts["scenes"] = scene_embed_dict
 
@@ -122,6 +122,10 @@ def get_all_graph_nodes(node_dicts, scenes):
     nodes_table_modals = pd.DataFrame()
     modal_type_map = {"images": 0, "keywords": 1, "scenes": 2}
 
+    print('--' * 20)
+    print('beginning graph edge processing')
+    print('--' * 20)
+
     for modal in node_dicts:
         nodes_table_modals = pd.concat(
             [
@@ -130,15 +134,27 @@ def get_all_graph_nodes(node_dicts, scenes):
             ]
         )
 
+    print('--' * 20)
+    print('Graph Edge Processing: Substage 1')
+    print('--' * 20)
+
     nodes_table_modals = nodes_table_modals.drop_duplicates(
         subset="node_id", keep="last"
     ).reset_index(drop=True)
+
+    print('--' * 20)
+    print('Graph Edge Processing: Substage 2')
+    print('--' * 20)
 
     new_node_ids = np.arange(len(nodes_table_modals))
     new_old_node_id_mapping = dict(
         zip(new_node_ids.tolist(), nodes_table_modals["node_id"].to_numpy().tolist())
     )
     nodes_table_modals["node_id"] = new_node_ids
+
+    print('--' * 20)
+    print('Graph Edge Processing: Substage 3')
+    print('--' * 20)
 
     modal_node_ids = {
         "images": nodes_table_modals[nodes_table_modals["ntype"] == 0][
@@ -152,6 +168,10 @@ def get_all_graph_nodes(node_dicts, scenes):
         modal_node_ids["scenes"] = nodes_table_modals[nodes_table_modals["ntype"] == 2][
             "node_id"
         ].values.tolist(),
+
+    print('--' * 20)
+    print('Graph Edge Processing: Substage 4')
+    print('--' * 20)
 
     return nodes_table_modals, new_old_node_id_mapping, modal_node_ids
 
@@ -364,6 +384,8 @@ if __name__ == "__main__":
         cwd=True,
     )
 
+
+    #main_wrapper(org='zillow_verified', new_edge_mode='images', sim_threshold=0.975)
     main_wrapper(org='coco', new_edge_mode='images', sim_threshold=0.925)
     #main_wrapper(org='zillow', new_edge_mode='images', sim_threshold=0.975)
 
