@@ -90,7 +90,7 @@ def load_zillow_verified_nodes(cfg: DictConfig, scenes=False):
     return node_dicts
 
 
-def load_mscoco_nodes(cfg: DictConfig):
+def load_mscoco_nodes(cfg: DictConfig, scenes=False):
     """
     Same type of output as load_zillow_data but for MSCOCO data.
     """
@@ -106,10 +106,14 @@ def load_mscoco_nodes(cfg: DictConfig):
         "keywords": dict(zip(keyword_ids, keyword_embeds)),
     }
 
+    if scenes == True:
+        scene_embed_dict = joblib.load(cfg.data.mscoco.scene_embeds)
+        node_dicts["scenes"] = scene_embed_dict
+
     return node_dicts
 
 
-def get_all_graph_nodes(node_dicts):
+def get_all_graph_nodes(node_dicts, scenes):
     """
     Use nodes_table() method from graph_utils to build a table of node IDs from
     all modalities, plus train / val / test masks and node features (embeddings)
@@ -158,11 +162,12 @@ def get_all_graph_nodes(node_dicts):
         ].values.tolist(),
         "keywords": nodes_table_modals[nodes_table_modals["ntype"] == 1][
             "node_id"
-        ].values.tolist(),
-        "scenes": nodes_table_modals[nodes_table_modals["ntype"] == 2][
+        ].values.tolist()}
+    
+    if scenes == True:
+        modal_node_ids["scenes"] = nodes_table_modals[nodes_table_modals["ntype"] == 2][
             "node_id"
         ].values.tolist(),
-    }
 
     print('--' * 20)
     print('Graph Edge Processing: Substage 4')
@@ -175,8 +180,7 @@ def get_all_graph_edges(
     cfg: DictConfig, new_old_node_id_mapping, org="coco", scenes=False
 ):
     if org == "coco":
-        node_links = pd.read_csv(cfg.data.coco.connections)
-        scenes = False
+        node_links = pd.read_csv(cfg.data.mscoco.connections)
         src_id, dst_id = ("img_id", "tag_ids")
 
     elif org == "zillow":
@@ -185,8 +189,9 @@ def get_all_graph_edges(
             "url_hash",
             "image_keyword_hash",
         )  # url_hash = img_id, # image_keyword_hash = list of keyword_ids
-    elif org == "zillow_verified":
-        node_links = pd.read_csv(cfg.data.zillow_verified.connections)
+    
+    elif org == "zillow_val":
+        node_links = pd.read_csv(cfg.data.zillow_val.connections)
         src_id, dst_id = (
             "url_hash",
             "image_keyword_hash",
@@ -292,42 +297,37 @@ def get_new_edges(
 
 
 def main_wrapper(
-    org="zillow", new_edge_mode=None, sim_threshold=None, new_edges_batch_size=500
+    org="zillow", scenes=True, new_edge_mode=None, sim_threshold=None, new_edges_batch_size=500
 ):
-    @hydra.main(version_base=None, config_path="../../conf", config_name="config")
+    @hydra.main(version_base=None, config_path="conf", config_name="config")
     def graph_builder(cfg):
         if org == "coco":
-            node_dicts = load_mscoco_nodes(cfg)
+            node_dicts = load_mscoco_nodes(cfg, scenes=scenes)
             graph_location = cfg.graph.mscoco.graph_dir
             graph_name = cfg.graph.mscoco.dataset_name
             edges_filename = cfg.graph.mscoco.edges
             nodes_filename = cfg.graph.mscoco.nodes
 
         elif org == "zillow":
-            node_dicts = load_zillow_nodes(cfg, scenes=True)
-            print('--' * 20)
-            print('loaded nodes')
-            print('--' * 20)
+            node_dicts = load_zillow_nodes(cfg, scenes=scenes)
             graph_location = cfg.graph.zillow.graph_dir
             graph_name = cfg.graph.zillow.dataset_name
             edges_filename = cfg.graph.zillow.edges
             nodes_filename = cfg.graph.zillow.nodes
-        elif org == "zillow_verified":
-            node_dicts = load_zillow_verified_nodes(cfg, scenes=True)
-            graph_location = cfg.graph.zillow_verified.graph_dir
-            graph_name = cfg.graph.zillow_verified.dataset_name
-            edges_filename = cfg.graph.zillow_verified.edges
-            nodes_filename = cfg.graph.zillow_verified.nodes
+            
+        elif org == "zillow_val":
+            node_dicts = load_zillow_val_nodes(cfg, scenes=scenes)
+            graph_location = cfg.graph.zillow_val.graph_dir
+            graph_name = cfg.graph.zillow_val.dataset_name
+            edges_filename = cfg.graph.zillow_val.edges
+            nodes_filename = cfg.graph.zillow_val.nodes
 
         else:
-            raise ValueError(f'Expected org input of "coco" or "zillow", got {org}')
+            raise ValueError(f'Expected org input of "coco", "zillow", or "zillow_val", got {org}')
         
-        nodes_table, new_old_node_id_mapping, modal_node_ids = get_all_graph_nodes(node_dicts)
-        edges_table = get_all_graph_edges(cfg, new_old_node_id_mapping, org=org, scenes=True)
-        print('--' * 20)
-        print('processed all graph edges')
-        print('--' * 20)
-
+        nodes_table, new_old_node_id_mapping, modal_node_ids = get_all_graph_nodes(node_dicts, scenes=scenes)
+        edges_table = get_all_graph_edges(cfg, new_old_node_id_mapping, org=org, scenes=scenes)
+        
         if new_edge_mode == 'images' or new_edge_mode == 'keywords':
             if sim_threshold == None:
                 raise ValueError(
@@ -384,6 +384,8 @@ if __name__ == "__main__":
         cwd=True,
     )
 
-    #main_wrapper(org='zillow')
-    main_wrapper(org='zillow_verified', new_edge_mode='images', sim_threshold=0.975)
+
+    #main_wrapper(org='zillow_verified', new_edge_mode='images', sim_threshold=0.975)
+    main_wrapper(org='coco', new_edge_mode='images', sim_threshold=0.925)
+    #main_wrapper(org='zillow', new_edge_mode='images', sim_threshold=0.975)
 
