@@ -11,7 +11,7 @@ Zillow development data can be downloaded from this [private Google Drive locati
 
 The Google Drive folder also contains a high-level data dictionary.
 
-#### Zillow Test Dataset:
+#### Zillow Test Dataset
 Zillow test data can be downloaded from this [private Google Drive location](https://drive.google.com/drive/u/0/folders/17qjTIMBwEmwWSAXvXUAIwLj0C8CfU_zf).
 
 #### MSCOCO
