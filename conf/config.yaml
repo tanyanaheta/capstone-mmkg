@@ -38,6 +38,7 @@ data:
     partition: "val2017"
     image_embeds: 'data/coco_data/coco_image_embeddings.pt'
     keyword_embeds: 'data/coco_data/coco_tag_embeddings.pt'
+    scene_embeds: 'data/coco_data/coco_scene_embed.joblib'
     connections: 'data/coco_data/image_text_data.csv'
   zillow_verified:
     path: data/zillow_verified_data
@@ -62,3 +63,8 @@ graph:
     graph_dir: 'graph/zillow_verified_graph_csv'
     edges: 'zillow_verified_edges.csv'
     nodes: 'zillow_verified_nodes.csv'
+
+exp_outputs:
+  zillow: 'exprmt_metrics/zillow'
+  coco: 'exprmt_metrics/coco'
+  zillow_verified: 'exprmt_metrics/zillow_verified'
