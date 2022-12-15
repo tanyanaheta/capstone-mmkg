@@ -10,6 +10,23 @@ import pyrootutils
 from tqdm import tqdm
 from PIL import Image
 
+
+def get_img_id(filename):
+    return int(filename.split('.')[0])
+
+
+def add_scene_data(img_txt_data_file='data/coco_data/image_text_data.csv', scene_data_file='coco_scene_data_nyu.csv'):
+    img_txt_data = pd.read_csv(img_txt_data_file)
+    scene_data = pd.read_csv(scene_data_file)
+
+    scene_data_sorted = scene_data.sort_values('image_path', ascending=True).reset_index(drop=True)
+    scene_data_sorted['coco_img_id'] = scene_data_sorted['image_path'].apply(lambda x: get_img_id(x))
+    scene_data_sorted_ids = scene_data_sorted[['coco_img_id', 'scene_hash']]
+
+    img_txt_data_scenes = img_txt_data.merge(scene_data_sorted_ids, how='inner', on='coco_img_id')
+    img_txt_data_scenes.to_csv('image_text_data.csv', index=False)
+
+
 @hydra.main(version_base=None, config_path="../../conf", config_name="config")
 def main(cfg):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -64,6 +81,8 @@ def main(cfg):
 
     ds.get_img_text_data()
     ds.img_text_data.to_csv(cfg.data.mscoco.connections, index=False)
+    add_scene_data()
+
 
 
 if __name__ == "__main__":
