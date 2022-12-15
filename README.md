@@ -5,11 +5,13 @@
 ### Getting the Data 
 Due to their large sizes, datasets are not included in this repo and should be downloaded locally. Instructions for each dataset are provided below:
 
-1. Zillow Dataset:
-Zillow data can be downloaded from this [private Google Drive location](https://drive.google.com/drive/u/0/folders/1lRgFdKi_74Q3a3qLudOrpc6Nd60vGcCZ). The Google Drive folder also contains a high-level data dictionary.
+1. Zillow Development Dataset:
+Zillow development data can be downloaded from this [private Google Drive location](https://drive.google.com/drive/u/0/folders/1lRgFdKi_74Q3a3qLudOrpc6Nd60vGcCZ). The Google Drive folder also contains a high-level data dictionary.
 
+2. Zillow Test Dataset:
+Zillow test data can be downloaded from this [private Google Drive location](https://drive.google.com/drive/u/0/folders/17qjTIMBwEmwWSAXvXUAIwLj0C8CfU_zf).
 
-2. MSCOCO
+3. MSCOCO
 To download zip files of the validation set of images (5000 images total) and annotations respectively, you can run the following commands in your project directory:
 
 ```
