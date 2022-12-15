@@ -277,8 +277,8 @@ def train(cfg):
     else:
         device = "cuda"
     datamodule = DataModule(
-        cfg.data.zillow_root, 
-        os.path.join(cfg.data.zillow_root,'modal_node_ids.json'),
+        cfg.data.zillow_data_root, 
+        os.path.join(cfg.data.zillow_data_root,'modal_node_ids.json'),
         keyword_as_src=False,
         device=device, 
         batch_size=cfg.training.batch_size
@@ -307,8 +307,8 @@ def evaluate(cfg):
     else:
         device = "cuda"
     datamodule = DataModule(
-        cfg.data.zillow_root, 
-        os.path.join(cfg.data.zillow_root, 'modal_node_ids.json'),
+        cfg.data.zillow_data_root, 
+        os.path.join(cfg.data.zillow_data_root, 'modal_node_ids.json'),
         keyword_as_src=False,
         device=device, 
         batch_size=cfg.training.batch_size
@@ -333,8 +333,8 @@ def baseline(cfg):
 
     root = pyrootutils.setup_root(__file__, pythonpath=True)
     datamodule = DataModule(
-        cfg.data.zillow_root, 
-        os.path.join(cfg.data.zillow_root, 'modal_node_ids.json'),
+        cfg.data.zillow_data_root, 
+        os.path.join(cfg.data.zillow_data_root, 'modal_node_ids.json'),
         keyword_as_src=False,
         device=device, 
         batch_size=cfg.training.batch_size
