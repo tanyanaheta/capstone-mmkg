@@ -6,18 +6,18 @@ This project was sanctioned and facilitated by the NYU Center for Data Science.
 
 # Setup and Environment Overview 
 
-Table of Contents 
+<ins>Table of Contents</ins>
 
-| Section of Project                | Relevant Files                                               | andre_develop |
-|-----------------------------------|--------------------------------------------------------------|---------------|
-| Configuration                     | `conf/config.yaml`                                           |               |
-| Data Processing                   | `src/datamodules/clip_embed.py`                              | andre_develop |
-| Graph Generation - Initialization | `src/datamodules/build_graph.py`                             | andre_develop |
-| Graph Generation - Training       | `train_graphsage.py` OR `notebooks/validation_exp_all.ipynb` | main          |
-| Graph Generation - Validation     | `notebooks/validation_exp_all.ipynb`                         | andre_develop |
-| Link Prediction                   | `notebooks/validation_exp_all.ipynb`                         |               |
-| Graph Objects                     | `graph/*`                                                    |               |
-| Stored Data                       | `data/*`                                                     |               |
+| Section of Project                | Relevant Files                                               |
+|-----------------------------------|--------------------------------------------------------------|
+| Configuration                     | `conf/config.yaml`                                           |
+| Data Processing                   | `src/datamodules/clip_embed.py`                              |
+| Graph Generation - Initialization | `src/datamodules/build_graph.py`                             |
+| Graph Generation - Training       | `train_graphsage.py` OR `notebooks/validation_exp_all.ipynb` |
+| Graph Generation - Validation     | `notebooks/validation_exp_all.ipynb`                         |
+| Link Prediction                   | `notebooks/validation_exp_all.ipynb`                         |
+| Graph Objects                     | `graph/*`                                                    |
+| Stored Data                       | `data/*`                                                     |
 
 ## Data Access
 
