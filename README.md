@@ -6,6 +6,19 @@ This project was sanctioned and facilitated by the NYU Center for Data Science.
 
 # Setup and Environment Overview 
 
+Table of Contents 
+
+| Section of Project                | Relevant Files                                               | andre_develop |
+|-----------------------------------|--------------------------------------------------------------|---------------|
+| Configuration                     | `conf/config.yaml`                                           |               |
+| Data Processing                   | `src/datamodules/clip_embed.py`                              | andre_develop |
+| Graph Generation - Initialization | `src/datamodules/build_graph.py`                             | andre_develop |
+| Graph Generation - Training       | `train_graphsage.py` OR `notebooks/validation_exp_all.ipynb` | main          |
+| Graph Generation - Validation     | `notebooks/validation_exp_all.ipynb`                         | andre_develop |
+| Link Prediction                   | `notebooks/validation_exp_all.ipynb`                         |               |
+| Graph Objects                     | `graph/*`                                                    |               |
+| Stored Data                       | `data/*`                                                     |               |
+
 ## Data Access
 
 Due to their large sizes, datasets are not included in this repo and should be downloaded locally. Instructions for each dataset are provided below:
@@ -133,7 +146,7 @@ Running this script to completion produces an initialized graph to the graph dir
 
 ### Graph Training 
 
-_Known Bugs: the validation() and baseline() methods have known bugs. This code can be run in the Jupyter Notebook if need be. However, running the python file below will still complete training._
+_Known Bugs: the validation() and baseline() methods have known bugs. This code can be run in the Jupyter Notebook `notebooks/validation_exp_all.ipynb` if need be. However, running the python file below will still complete training._
 
 The script `train_graphsage.py` trains an initialized graph using GraphSAGE. The config file `conf/config.yaml` defines the dataset/graph to be trained. The class `SAGELightning` defines the parameters for the GNN used in training. 
 
@@ -161,8 +174,10 @@ Graph Validation can be done in the Jupyter notebook `validation_exp_all.ipynb`.
 
 ### Modularization Attempt 
 
-The script `src/datamodules/cnnx_experiment.py` is an attempt to modularize a portion of the `validation_exp_all.ipynb`. Development was halted in favor of the notebook (for rapid development). However, if one choose to modularize the notebook, much of the code from the aforementioned python file can be reused. 
+The script `src/datamodules/cnnx_experiment.py` is an attempt to modularize a portion of the `notebooks/validation_exp_all.ipynb`. Development was halted in favor of the notebook (for rapid development). However, if one choose to modularize the notebook, much of the code from the aforementioned python file can be reused. 
 
 ### Link Prediction Experiments
 
 The link prediction experiment is handled in `validation_exp_all.ipynb`. Notably, this notebook contains code to run our three variants of link prediction. The variants are defined by the method with which validation nodes are reconnected to the full graph to conduct full-graph link prediction. These methods are (1) reconnection via cosine similarity, (2) reconnection via scene connection, and (3) reconnection via self-loop (or self connect). 
+
+The notebook is quite extensive, therefore, documentation for the notebook is done in-notebook. 
