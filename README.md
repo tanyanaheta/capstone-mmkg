@@ -1,20 +1,22 @@
 # Multimodal Graph Induction: Project Respository
 
-## Setup and Environment Overview 
+This is the project repository for Team A within the NYU-Zillow Capstone collaboration. 
 
-### Data Access
+# Setup and Environment Overview 
+
+## Data Access
 
 Due to their large sizes, datasets are not included in this repo and should be downloaded locally. Instructions for each dataset are provided below:
 
-#### Zillow Development Dataset
+### Zillow Development Dataset
 Zillow development data can be downloaded from this [private Google Drive location](https://drive.google.com/drive/u/0/folders/1lRgFdKi_74Q3a3qLudOrpc6Nd60vGcCZ). 
 
 The Google Drive folder also contains a high-level data dictionary.
 
-#### Zillow Test Dataset
+### Zillow Test Dataset
 Zillow test data can be downloaded from this [private Google Drive location](https://drive.google.com/drive/u/0/folders/17qjTIMBwEmwWSAXvXUAIwLj0C8CfU_zf).
 
-#### MSCOCO
+### MSCOCO
 To download zip files of the validation set of images (5000 images total) and annotations respectively, you can run the following commands in your project directory:
 
 ```
@@ -22,12 +24,12 @@ curl -O http://images.cocodataset.org/annotations/annotations_trainval2017.zip
 curl -O http://images.cocodataset.org/zips/val2017.zip
 ```
 
-### Data configuration:
+## Data configuration:
 
 1. Upload the file contents of the Zillow Dataset to a folder called "zillow_data" (create this folder for yourself) at the root level of `NYU-Zillow-Capstone-2022-Team-A`.
 3. Run the following bash command: `mksquashfs zillow_data zillow.sqsh; mkdir -p /scratch/$USER/data_zillow; mv zillow.sqsh scratch/$USER/data_zillow`
 
-### Directory Organization 
+## Directory Organization 
 After following instructions as laid out above, directory should be structured as shown below (unimpacted project files omitted):
 
 ```
@@ -100,17 +102,23 @@ After following instructions as laid out above, directory should be structured a
     
 ```
 
-## Project Components 
+# Project Components 
 
-### Data Processing 
+We break our project components down using the following sections (listed in order): 
+
+- Data processing (COCO only)
+- Graph Generation (sub parts: Graph Initialization, Graph Training, and Graph Validation)
+- Link Prediction 
+
+## Data Processing 
 
 If using MS COCO data, the script `src/datamodules/clip_embed.py` will produce the necessary CLIP embeddings for MS COCO. No additional parameters are neccesary. 
 
-### Graph Generation 
+## Graph Generation 
 
 We take in images and keywords from either the COCO or Zillow Dataset. Using these, we initialize a graph using the DGL library. Next, we train the graph using GraphSAGE in order to update node embeddings to reflect image similarity. We elaborate below: 
 
-#### Graph Initialization 
+### Graph Initialization 
 
 The script `src/datamodules/build_graph.py` initializes the graph. This script does not take command line arguments because of the use of the Hydra Main Wrapper. Instead, arguments passed to the Hydra Main Wrapper can be directly modified using the `main_wrapper()` function call within `src/datamodules/build_graph.py`. The arguments for the function call are: 
 - org (str): default="zillow" | also accepts "zillow_verified" for human verified labels and "coco" for MS COCO data
@@ -121,9 +129,9 @@ The script `src/datamodules/build_graph.py` initializes the graph. This script d
 
 Running this script to completion produces an initialized graph to the graph directory specified in the `conf/config.yaml`. 
 
-#### Graph Training 
+### Graph Training 
 
-_Known Bugs: the validation() and baseline() methods have known bugs. This code can be run in the Jupyter Notebook if need be._
+_Known Bugs: the validation() and baseline() methods have known bugs. This code can be run in the Jupyter Notebook if need be. However, running the python file below will still complete training._
 
 The script `train_graphsage.py` trains an initialized graph using GraphSAGE. The config file `conf/config.yaml` defines the dataset/graph to be trained. The class `SAGELightning` defines the parameters for the GNN used in training. 
 
@@ -143,13 +151,16 @@ Here, we are using `zillow_data_root` and `zillow_graph_root`, which refers to t
 
 Running this script to completion trains the graph passed in. A saved file of the trained graph is stored in 
 
-### Link Prediction
+### Graph Validation 
 
-The script `src/datamodules/cnnx_experiment.py` acts upon a trained graph. Notably, it implements an experiment for two node-reconnection during training. The three methods for node reconnection are (1) cosine similarity, (2) scene connections, and (3) self loops. This script has functionality to implement methods (1) and (2). 
+Graph Validation can be done in the Jupyter notebook `validation_exp_all.ipynb`. 
 
-The script takes in the following arguments via command line (the arguments are listed in order): 
-- method (str): required | accepts "cosine" for method (1), and "scene" for method (2); also accepts "all" to run both methods back to back 
-- org (str): required | accepts "zillow" for zillow development set, "zillow_verified" for human verified labels and "coco" for MS COCO data
+## Link Prediction
 
-A sample run of the script follows: `python src/datamodules/cnnx_experiment.py all zillow_verified`. This will run both the scene and cosine experiments on the zillow human verified graph. 
+### Modularization Attempt 
 
+The script `src/datamodules/cnnx_experiment.py` is an attempt to modularize a portion of the `validation_exp_all.ipynb`. Development was halted in favor of the notebook (for rapid development). However, if one choose to modularize the notebook, much of the code from the aforementioned python file can be reused. 
+
+### Link Prediction Experiments
+
+The link prediction experiment is handled in `validation_exp_all.ipynb`. Notably, this notebook contains code to run our three variants of link prediction. The variants are defined by the method with which validation nodes are reconnected to the full graph to conduct full-graph link prediction. These methods are (1) reconnection via cosine similarity, (2) reconnection via scene connection, and (3) reconnection via self-loop (or self connect). 
