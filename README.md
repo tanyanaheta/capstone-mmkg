@@ -211,6 +211,10 @@ The link prediction experiment is handled in `validation_exp_all.ipynb`. Notably
 
 The notebook is quite extensive, therefore, documentation for the notebook is done in-notebook. 
 
+### Top K Experiment 
+
+We attempted to improve Link Prediction by limiting each node to K connections during link prediction. This did not seem to improve link prediction metrics, but a variant of this method could. Code for this is available at the very end of the aforementioned Jupyter Notebook. 
+
 ## Saved Graphs 
 
 A saved version of a trained GraphSAGE graph is stored as `model_saved.py`
