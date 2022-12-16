@@ -210,3 +210,7 @@ The script `src/datamodules/cnnx_experiment.py` is an attempt to modularize a po
 The link prediction experiment is handled in `validation_exp_all.ipynb`. Notably, this notebook contains code to run our three variants of link prediction. The variants are defined by the method with which validation nodes are reconnected to the full graph to conduct full-graph link prediction. These methods are (1) reconnection via cosine similarity, (2) reconnection via scene connection, and (3) reconnection via self-loop (or self connect). 
 
 The notebook is quite extensive, therefore, documentation for the notebook is done in-notebook. 
+
+## Saved Graphs 
+
+A saved version of a trained GraphSAGE graph is stored as `model_saved.py`
