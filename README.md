@@ -123,6 +123,8 @@ Running this script to completion produces an initialized graph to the graph dir
 
 #### Graph Training 
 
+_Known Bugs: the validation() and baseline() methods have known bugs. This code can be run in the Jupyter Notebook if need be._
+
 The script `train_graphsage.py` trains an initialized graph using GraphSAGE. The config file `conf/config.yaml` defines the dataset/graph to be trained. The class `SAGELightning` defines the parameters for the GNN used in training. 
 
 Notably, while the config file defines various paths for different graphs, the root must be defined in the data module initialization (found in the `@hydra.main` wrappers for the following methods: `train()`, `evaluate()`, and `baseline()`). An example is shown below: 
@@ -137,9 +139,9 @@ datamodule = DataModule(
     )
 ```
 
-Here, we are using `zillow_data_root`, which refers to the zillow development set. However, we can also use `zillow_verified_data_root` (for zillow human verified data) and `coco_data_root` (for MS COCO). 
+Here, we are using `zillow_data_root` and `zillow_graph_root`, which refers to the zillow development set. However, we can also use `zillow_verified_data_root` and ``zillow_verified_graph_root` (for zillow human verified data) and `coco_data_root` and `coco_graph_root` (for MS COCO). 
 
-Running this script to completion trains the graph passed in. 
+Running this script to completion trains the graph passed in. A saved file of the trained graph is stored in 
 
 ### Link Prediction
 

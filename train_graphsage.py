@@ -48,7 +48,8 @@ class ScorePredictor(nn.Module):
     def forward(self, edge_subgraph, x):
         with edge_subgraph.local_scope():
             edge_subgraph.ndata["h"] = x
-            edge_subgraph.apply_edges(fn.u_dot_v("h", "h", "score"))
+            edge_subgraph.ndata['h_norm'] = F.normalize(x, p=2, dim=-1)
+            edge_subgraph.apply_edges(fn.u_dot_v("h_norm", "h_norm", "score"))
             return edge_subgraph.edata["score"]
 
 
@@ -59,9 +60,9 @@ class SAGELightning(LightningModule):
         h_dim,
         n_layers=3,
         activation=F.relu,
-        dropout=0,
+        dropout=0.7,
         sage_conv_method="mean",
-        lr=0.0005,
+        lr=0.005,
         batch_size=1024,
     ):
         super().__init__()
@@ -74,11 +75,8 @@ class SAGELightning(LightningModule):
         self.save_hyperparameters()
 
         self.train_loss = MeanMetric()
-        self.val_positive_distance = MeanMetric()
-        # self.val_negative_distance = MeanMetric()
-
-        # self.BinaryAUROC = BinaryAUROC(thresholds=None)
-        # self.BinaryAveragePrecision = BinaryAveragePrecision(thresholds=None)
+        self.mean_val_positive_score = MeanMetric()
+    
     def forward(self, graph, blocks, x):
         self.module(graph, blocks, x)
 
@@ -94,73 +92,54 @@ class SAGELightning(LightningModule):
         neg_label = torch.zeros_like(neg_score)
         labels = torch.cat([pos_label, neg_label])
         loss = F.binary_cross_entropy_with_logits(score, labels)
-        # self.train_loss(loss)
-        # self.log(
-        #     "train_loss",
-        #     self.train_loss,
-        #     prog_bar=True,
-        #     on_step=True,
-        #     on_epoch=False,
-        #     batch_size=self.batch_size,
-        # )
 
         return loss
 
     def validation_step(self, batch, batch_idx):
-        input_nodes, pos_graph, neg_graph, blocks = batch
+        input_nodes, pos_graph, blocks = batch
         x = blocks[0].srcdata["feat"]
         logits = self.module(blocks, x)
         pos_score = self.predictor(pos_graph, logits)
-        # neg_score = self.predictor(neg_graph, logits)
-
-        # scores = torch.cat([pos_score, neg_score])
         pos_label = torch.ones_like(pos_score)
-        # neg_label = torch.zeros_like(neg_score)
-        # labels = torch.cat([pos_label, neg_label])
-
-        self.val_positive_distance(pos_score)
-        # self.val_negative_distance(neg_score)
-        # self.BinaryAUROC(scores, labels)
-        # self.BinaryAveragePrecision(scores, labels)
+        self.mean_val_positive_score(pos_score)
 
         self.log(
             "mean_val_positive_score",
-            self.val_positive_distance,
+            self.mean_val_positive_score,
             prog_bar=True,
             on_step=False,
             on_epoch=True,
             batch_size=self.batch_size,
         )
-        # self.log(
-        #     "mean_val_negative_score",
-        #     self.val_negative_distance,
-        #     prog_bar=True,
-        #     on_step=False,
-        #     on_epoch=True,
-        #     batch_size=self.batch_size,
-        # )
-
-        # self.log(
-        #     "BinaryAUROC",
-        #     self.BinaryAUROC,
-        #     prog_bar=True,
-        #     on_epoch=True,
-        #     on_step=False,
-        #     batch_size=self.batch_size
-        # )
-        # self.log(
-        #     "BinaryAveragePrecision",
-        #     self.BinaryAveragePrecision,
-        #     prog_bar=True,
-        #     on_epoch=True,
-        #     on_step=False,
-        #     batch_size=self.batch_size
-        #     )
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
 
+
+class NegativeSamplerTest(object):
+    def __init__(self, g, k, max_img_id, keyword_as_src, neg_share=False):
+        self.weights = g.in_degrees().float() ** 0.75
+        self.k = k
+        self.neg_share = neg_share
+        self.max_img_id = max_img_id
+        self.keyword_as_src = keyword_as_src
+
+    def __call__(self, g, eids):
+        src, _ = g.find_edges(eids)
+        if self.keyword_as_src == False:
+            img_node_mask = src <= self.max_img_id
+            src = src[img_node_mask]
+        n = len(src)
+
+        if self.neg_share and n % self.k == 0:
+            dst = self.weights.multinomial(n, replacement=True)
+            dst = dst.view(-1, 1, self.k).expand(-1, self.k, -1).flatten()
+        else:
+            dst = self.weights.multinomial(n * self.k, replacement=True)
+            
+        src = src.repeat_interleave(self.k)
+        return src, dst
 
 class DataModule(LightningDataModule):
     def __init__(
@@ -169,7 +148,7 @@ class DataModule(LightningDataModule):
         modal_node_ids_file,
         keyword_as_src=False,
         data_cpu=False,
-        fan_out=[10, 25],
+        fan_out=[3],
         device="cpu",
         batch_size=1024,
         num_workers=4,
@@ -188,17 +167,14 @@ class DataModule(LightningDataModule):
 
         train_nid = torch.nonzero(g_bid.ndata["train_mask"], as_tuple=True)[0].to(device)
         val_nid = torch.nonzero(g_bid.ndata["val_mask"], as_tuple=True)[0].to(device)
-        test_nid = torch.nonzero(
-            ~(g_bid.ndata["train_mask"] | g_bid.ndata["val_mask"]), as_tuple=True
-        )[0].to(device)
+        test_nid = torch.nonzero(g_bid.ndata["test_mask"], as_tuple=True)[0].to(device)
 
-        sampler = dgl.dataloading.MultiLayerNeighborSampler(
-            [int(_) for _ in fan_out], prefetch_node_feats=["feat"]
-        )
+        sampler = dgl.dataloading.NeighborSampler(fan_out)
 
         self.g = g
         self.g_bid = g_bid
-        self.train_nid, self.val_nid, self.test_nid = train_nid, val_nid, test_nid
+        self.train_nid = train_nid
+        self.val_nid = val_nid #torch.cat((val_nid, test_nid))
         self.sampler = sampler
         self.device = device
         self.batch_size = batch_size
@@ -214,7 +190,7 @@ class DataModule(LightningDataModule):
             self.sampler,
             exclude='reverse_id',
             reverse_eids=self.reverse_eids,
-            negative_sampler=NegativeSampler(self.g, 1, self.max_img_id, self.keyword_as_src)
+            negative_sampler=NegativeSamplerTest(self.g, 1, self.max_img_id, self.keyword_as_src)
         )
 
         train_subgraph = self.g_bid.subgraph(self.train_nid)
@@ -249,25 +225,6 @@ class DataModule(LightningDataModule):
             shuffle=False,
             drop_last=False
         )
-    
-    def test_dataloader(self):
-        edge_sampler = dgl.dataloading.as_edge_prediction_sampler(
-            self.sampler
-        )
-
-        test_subgraph = self.g_bid.subgraph(self.test_nid)
-        test_u, test_v = test_subgraph.edges()
-        test_eids = test_subgraph.edata['_ID'][test_subgraph.edge_ids(test_u, test_v)]
-
-        return dgl.dataloading.DataLoader(
-            self.g_bid,
-            test_eids,
-            edge_sampler,
-            device=self.device,
-            batch_size=self.batch_size,
-            shuffle=True,
-            drop_last=False
-        )
 
 
 @hydra.main(config_name="config", config_path="conf", version_base=None)
@@ -275,13 +232,18 @@ def train(cfg):
     if not torch.cuda.is_available():
         device = "cpu"
     else:
-        device = "cuda"
+        device = "cpu"
+    
+    train_graph_root = cfg.data.zillow_graph_root
+
+    modal_node_ids_file = os.path.join(train_graph_root,'modal_node_ids.json')
     datamodule = DataModule(
-        cfg.data.zillow_data_root, 
-        os.path.join(cfg.data.zillow_data_root,'modal_node_ids.json'),
-        keyword_as_src=False,
+        train_graph_root, 
+        modal_node_ids_file, 
+        keyword_as_src=False, 
         device=device, 
-        batch_size=cfg.training.batch_size
+        batch_size=cfg.training.batch_size, 
+        force_reload=False
     )
 
     model = SAGELightning(
@@ -289,16 +251,18 @@ def train(cfg):
         cfg.model.hidden_dim,
         n_layers=cfg.model.n_layers,
         batch_size=cfg.training.batch_size,
-        sage_conv_method=cfg.model.sage_conv_method
+        lr=cfg.training.learning_rate
     )
 
     checkpoint_callback = ModelCheckpoint(
         monitor="mean_val_positive_score", save_top_k=1, mode="max"
     )
-    trainer = Trainer(accelerator="gpu", max_epochs=cfg.training.n_epochs, callbacks=[checkpoint_callback])
 
+    trainer = Trainer(accelerator=device, max_epochs=cfg.training.n_epochs, callbacks=[checkpoint_callback])
     trainer.fit(model, datamodule=datamodule)
 
+    torch.save(model.module, 'model_saved.pt')
+    print('Saved Model')
 
 @hydra.main(config_name="config", config_path="conf", version_base=None)
 def evaluate(cfg):
@@ -306,21 +270,28 @@ def evaluate(cfg):
         device = "cpu"
     else:
         device = "cuda"
+    
+    train_graph_root = cfg.data.zillow_graph_root
+
+    modal_node_ids_file = os.path.join(train_graph_root,'modal_node_ids.json')
     datamodule = DataModule(
-        cfg.data.zillow_data_root, 
-        os.path.join(cfg.data.zillow_data_root, 'modal_node_ids.json'),
-        keyword_as_src=False,
+        train_graph_root, 
+        modal_node_ids_file, 
+        keyword_as_src=False, 
         device=device, 
-        batch_size=cfg.training.batch_size
-    )
-    model = SAGELightning(
-        datamodule.in_dim,
-        h_dim=cfg.model.hidden_dim,
-        n_layers=cfg.model.n_layers,
-        batch_size=cfg.training.batch_size,
+        batch_size=cfg.training.batch_size, 
+        force_reload=False
     )
 
-    trainer = Trainer(accelerator="gpu")
+    model = SAGELightning(
+        datamodule.in_dim,
+        cfg.model.hidden_dim,
+        n_layers=cfg.model.n_layers,
+        batch_size=cfg.training.batch_size,
+        lr=cfg.training.learning_rate
+    )
+
+    trainer = Trainer(accelerator=device)
     dataloader = datamodule.val_dataloader()
     trainer.test(model, dataloaders=dataloader)
 
@@ -331,13 +302,18 @@ def baseline(cfg):
     else:
         device = "cuda"
 
-    root = pyrootutils.setup_root(__file__, pythonpath=True)
+    #root = pyrootutils.setup_root(__file__, pythonpath=True)
+    
+    train_graph_root = cfg.data.zillow_graph_root
+
+    modal_node_ids_file = os.path.join(train_graph_root,'modal_node_ids.json')
     datamodule = DataModule(
-        cfg.data.zillow_data_root, 
-        os.path.join(cfg.data.zillow_data_root, 'modal_node_ids.json'),
-        keyword_as_src=False,
+        train_graph_root, 
+        modal_node_ids_file, 
+        keyword_as_src=False, 
         device=device, 
-        batch_size=cfg.training.batch_size
+        batch_size=cfg.training.batch_size, 
+        force_reload=False
     )
     predictor = ScorePredictor()
 
@@ -378,5 +354,6 @@ def baseline(cfg):
 
 if __name__ == "__main__":
     train()
-    baseline()
+    # evaluate()
+    # baseline()
     print("Done")
