@@ -19,6 +19,10 @@ This project was sanctioned and facilitated by the NYU Center for Data Science.
 | Graph Objects                     | `graph/*`                                                    |
 | Stored Data                       | `data/*`                                                     |
 
+## Packages 
+
+A yml file containing the conda environment used for this project can be found in the `conf` directory. 
+
 ## Data Access
 
 Due to their large sizes, datasets are not included in this repo and should be downloaded locally. Instructions for each dataset are provided below:
