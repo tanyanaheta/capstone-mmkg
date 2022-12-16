@@ -1,6 +1,8 @@
 # Multimodal Graph Induction: Project Respository
 
-This is the project repository for Team A within the NYU-Zillow Capstone collaboration. 
+This is the project repository for Team A within the NYU-Zillow Capstone collaboration. The code in this repository was produced by Adi Srikanth, Andre Chen, David Roth, and Tanya Naheta. The code is built on proprietary information provided by Zillow Group. 
+
+This project was sanctioned and facilitated by the NYU Center for Data Science. 
 
 # Setup and Environment Overview 
 
