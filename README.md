@@ -214,3 +214,8 @@ The notebook is quite extensive, therefore, documentation for the notebook is do
 ## Saved Graphs 
 
 A saved version of a trained GraphSAGE graph is stored as `model_saved.py`
+
+## Known Bugs 
+
+- `train_graphsage.py`: Methods validation() and baseline() have errors stemming from outdated dataloader
+- `src/datamodules/cnnx_experiment.py`: trainer.fit() throwing CUDA error
