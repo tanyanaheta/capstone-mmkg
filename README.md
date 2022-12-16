@@ -53,68 +53,97 @@ After following instructions as laid out above, directory should be structured a
 └───tmp **(CREATED)**
 │
 └───NYU-Zillow-Capstone-2022-Team-A
-    │   layer_setup.sh
-    │   overlay-base.ext3 **(CREATED)**
-    │   overlay-packages.ext3 **(CREATED)**
-    │   overlay-temp.ext3 **(CREATED)**
-    |   start_singularity_instance.sh
-    │   singularity_setup.sh
-    │   launch.slurm
-    │   getnode.slurm
+    |   baseline.py
+    |   train_graphsage.py
+    |   .gitignore
+    |   README
     │   ...
-    │
-    └───scripts
-    │   │   create_base_overlay.sh
-    │   │   create_package_overlay.sh
-    │       
-    └───zillow_data **(CREATED)**
-    │   │   image_embed.joblib **(UPLOADED)**
-    │   │   keyword_embed.joblib **(UPLOADED)**
-    │   │   NYU_photoboard_file.csv **(UPLOADED)**
-    │   │   scene_embed.joblib **(UPLOADED)**
-    │   
+    │    ..
+    |
+    └───NYU_HPC
+    |   |   launch_job.sh
+    |   |   launch.slurm
+    |   |   getnode.slurn
+    |   └─── scripts
+    |   |   │   layer_setup.sh
+    |   |   │   overlay-base.ext3 **(CREATED)**
+    |   |   │   overlay-packages.ext3 **(CREATED)**
+    |   |   │   overlay-temp.ext3 **(CREATED)**
+    |   |   |   start_singularity_instance.sh
+    |   |   │   singularity_setup.sh
+    |   |   │   launch.slurm
+    |   |   │   getnode.slurm
+    |   |   |   ..
+    │   └─── overlays
+    |        | ...
+    |        | ..    
+    |
+    └─── data
+    |   └───zillow_data **(CREATED)**
+    │       │   image_embed.joblib **(UPLOADED)**
+    │       │   keyword_embed.joblib **(UPLOADED)**
+    │       │   NYU_photoboard_file.csv **(UPLOADED)**
+    │       │   scene_embed.joblib **(UPLOADED)**
+    │       |   ..
+    |   └───zillow_verified_data **(CREATED)**
+    │       │   image_embed.joblib **(UPLOADED)**
+    │       │   keyword_embed.joblib **(UPLOADED)**
+    │       │   NYU_photoboard_file.csv **(UPLOADED)**
+    │       │   scene_embed.joblib **(UPLOADED)**
+    |   └───coco_data **(CREATED)**
+    |       |   ...
+    |       |   ..
+    |
     └───src
     |   |
     |   └───datamodules
-    |                 |
-    |                 └───build_graph
-    |                 |
-    |                 └───cnnx_experiment
-    |                 |
-    |                 └─── ...
-    │   
+    |    |  |
+    |    |  |   build_graph.py
+    |    |  |   cnnx_experiment.py
+    |    |  |   graph_utils.py
+    |    |  |   clip_embed.py
+    |    |  |   ..   
+    |    |  └─── ...
+    |    |        
+    |    └───model
+    |    |   | SAGE.py 
+    |    |   | ..
+    |    |
     └───notebooks
-    │   │   ...  
-    │   
+    │   │   validation_exp_all.ipynb
+    │   |   ...
+    |   |   ..
     └───graph
     |   │           
-    |   |
     |   └───coco_graph_csv
-    |   |
-    |   |
+    |   |   | *_edges.csv
+    |   |   | *_nodes.csv
+    |   |   | meta.yaml
+    |   |   | ..
     |   |
     |   └───zillow_graph_csv_images_975
-    |   |
-    |   |
+    |   |   | *_edges.csv
+    |   |   | *_nodes.csv
+    |   |   | meta.yaml
+    |   |   | .. 
     |   |
     |   └───zillow_verified_graph_csv_images_975
-    │
-    └───data
-    |   |
-    |   |
-    |   └───coco_data
-    |   |
-    |   |
-    |   |
-    |   └───zillow_data
-    |   |
-    |   |
-    |   |
-    |   └───zillow_verified_data   
-    |
+    |   |   | *_edges.csv
+    |   |   | *_nodes.csv
+    |   |   | meta.yaml   
+    |   |   | ..
     |
     └───conf
-    
+    |   | config.yaml
+    |   | ..
+    |
+    └───previous_work
+    |   | ... 
+    |   | ..
+    |
+    exprmt_metrics
+        | ...
+        | ..
 ```
 
 # Project Components 
