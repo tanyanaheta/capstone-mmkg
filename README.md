@@ -164,16 +164,16 @@ If using MS COCO data, the script `src/datamodules/clip_embed.py` will produce t
 
 ## Graph Generation 
 
-We take in images and keywords from either the COCO or Zillow Dataset. Using these, we initialize a graph using the DGL library. Next, we train the graph using GraphSAGE in order to update node embeddings to reflect image similarity. We elaborate below: 
+We take in images and keywords from either the COCO or Zillow Dataset. Using these, we initialize a graph using the DGL library. Next, we train the graph using GraphSAGE in order to update node embeddings. We elaborate below: 
 
 ### Graph Initialization 
 
 The script `src/datamodules/build_graph.py` initializes the graph. This script does not take command line arguments because of the use of the Hydra Main Wrapper. Instead, arguments passed to the Hydra Main Wrapper can be directly modified using the `main_wrapper()` function call within `src/datamodules/build_graph.py`. The arguments for the function call are: 
 - org (str): default="zillow" | also accepts "zillow_verified" for human verified labels and "coco" for MS COCO data
 - scenes (bool): default=True | whether or not to include scene connections 
-- new_edge_mode (str): default=None | accepts "images" or "keywords" in order to enforce and subset new node generation to one type of node 
-- sim_threshold (float): default=None | cosine similarity threshhold for link prediction (values above 0.92 tend to be good)
-- new_edges_batch_size (int): default=500 | batch size for link prediction learning task 
+- new_edge_mode (str): default=None | accepts "images" or "keywords" in order to enable new edge generation within one type of node during graph building
+- sim_threshold (float): default=None | cosine similarity threshold for creating edges between nodes if new_edge_mode != None (values used to produce our results are included in commented out lines in the bottom of the script)
+- new_edges_batch_size (int): default=500 | batch size for adding new edges (useful on local since process of adding new edges is memory intensive) 
 
 Running this script to completion produces an initialized graph to the graph directory specified in the `conf/config.yaml`. 
 
