@@ -58,7 +58,7 @@ class SAGELightning(LightningModule):
         self,
         in_dim,
         h_dim,
-        n_layers=3,
+        n_layers=2,
         activation=F.relu,
         dropout=0.7,
         sage_conv_method="mean",
@@ -117,30 +117,6 @@ class SAGELightning(LightningModule):
         return optimizer
 
 
-class NegativeSamplerTest(object):
-    def __init__(self, g, k, max_img_id, keyword_as_src, neg_share=False):
-        self.weights = g.in_degrees().float() ** 0.75
-        self.k = k
-        self.neg_share = neg_share
-        self.max_img_id = max_img_id
-        self.keyword_as_src = keyword_as_src
-
-    def __call__(self, g, eids):
-        src, _ = g.find_edges(eids)
-        if self.keyword_as_src == False:
-            img_node_mask = src <= self.max_img_id
-            src = src[img_node_mask]
-        n = len(src)
-
-        if self.neg_share and n % self.k == 0:
-            dst = self.weights.multinomial(n, replacement=True)
-            dst = dst.view(-1, 1, self.k).expand(-1, self.k, -1).flatten()
-        else:
-            dst = self.weights.multinomial(n * self.k, replacement=True)
-            
-        src = src.repeat_interleave(self.k)
-        return src, dst
-
 class DataModule(LightningDataModule):
     def __init__(
         self,
@@ -190,7 +166,7 @@ class DataModule(LightningDataModule):
             self.sampler,
             exclude='reverse_id',
             reverse_eids=self.reverse_eids,
-            negative_sampler=NegativeSamplerTest(self.g, 1, self.max_img_id, self.keyword_as_src)
+            negative_sampler=NegativeSampler(self.g, 1, self.max_img_id, self.keyword_as_src)
         )
 
         train_subgraph = self.g_bid.subgraph(self.train_nid)
@@ -226,134 +202,149 @@ class DataModule(LightningDataModule):
             drop_last=False
         )
 
+def train_wrapper(org='zillow_verified', pre_connect_threshold=None):
+    @hydra.main(config_name="config", config_path="conf", version_base=None)
+    def train(cfg):
+        if not torch.cuda.is_available():
+            device = "cpu"
+        else:
+            device = "cuda"
+        
+        if org == 'zillow':
+            train_graph_root = cfg.graph.zillow.graph_dir
+        elif org == 'coco':
+            train_graph_root = cfg.graph.mscoco.graph_dir
+        else:
+            raise ValueError(f'invalid org {org}, expected zillow or coco')
 
-@hydra.main(config_name="config", config_path="conf", version_base=None)
-def train(cfg):
-    if not torch.cuda.is_available():
-        device = "cpu"
-    else:
-        device = "cpu"
+        if pre_connect_threshold:
+            connect_type = f'_images_{str(pre_connect_threshold).split(".")[-1]}'
+        else:
+            connect_type = ''
+        
+        train_graph_root += connect_type
+        modal_node_ids_file = os.path.join(train_graph_root,'modal_node_ids.json')
+        datamodule = DataModule(
+            train_graph_root, 
+            modal_node_ids_file, 
+            keyword_as_src=False, 
+            device=device, 
+            batch_size=cfg.training.batch_size, 
+            force_reload=False
+        )
+
+        model = SAGELightning(
+            datamodule.in_dim,
+            cfg.model.hidden_dim,
+            n_layers=cfg.model.n_layers,
+            batch_size=cfg.training.batch_size,
+            lr=cfg.training.learning_rate
+        )
+
+        checkpoint_callback = ModelCheckpoint(
+            monitor="mean_val_positive_score", save_top_k=1, mode="max"
+        )
+
+        trainer = Trainer(accelerator=device, max_epochs=cfg.training.n_epochs, callbacks=[checkpoint_callback])
+        trainer.fit(model, datamodule=datamodule)
+
+        torch.save(model.module, f'saved_model_{org}{connect_type}.pt')
+        print('Saved Model')
     
-    train_graph_root = cfg.data.zillow_graph_root
+    train()
 
-    modal_node_ids_file = os.path.join(train_graph_root,'modal_node_ids.json')
-    datamodule = DataModule(
-        train_graph_root, 
-        modal_node_ids_file, 
-        keyword_as_src=False, 
-        device=device, 
-        batch_size=cfg.training.batch_size, 
-        force_reload=False
-    )
-
-    model = SAGELightning(
-        datamodule.in_dim,
-        cfg.model.hidden_dim,
-        n_layers=cfg.model.n_layers,
-        batch_size=cfg.training.batch_size,
-        lr=cfg.training.learning_rate
-    )
-
-    checkpoint_callback = ModelCheckpoint(
-        monitor="mean_val_positive_score", save_top_k=1, mode="max"
-    )
-
-    trainer = Trainer(accelerator=device, max_epochs=cfg.training.n_epochs, callbacks=[checkpoint_callback])
-    trainer.fit(model, datamodule=datamodule)
-
-    torch.save(model.module, 'model_saved.pt')
-    print('Saved Model')
-
-@hydra.main(config_name="config", config_path="conf", version_base=None)
-def evaluate(cfg):
-    if not torch.cuda.is_available():
-        device = "cpu"
-    else:
-        device = "cuda"
+# @hydra.main(config_name="config", config_path="conf", version_base=None)
+# def evaluate(cfg):
+#     if not torch.cuda.is_available():
+#         device = "cpu"
+#     else:
+#         device = "cuda"
     
-    train_graph_root = cfg.data.zillow_graph_root
+#     train_graph_root = cfg.data.zillow_graph_root
 
-    modal_node_ids_file = os.path.join(train_graph_root,'modal_node_ids.json')
-    datamodule = DataModule(
-        train_graph_root, 
-        modal_node_ids_file, 
-        keyword_as_src=False, 
-        device=device, 
-        batch_size=cfg.training.batch_size, 
-        force_reload=False
-    )
+#     modal_node_ids_file = os.path.join(train_graph_root,'modal_node_ids.json')
+#     datamodule = DataModule(
+#         train_graph_root, 
+#         modal_node_ids_file, 
+#         keyword_as_src=False, 
+#         device=device, 
+#         batch_size=cfg.training.batch_size, 
+#         force_reload=False
+#     )
 
-    model = SAGELightning(
-        datamodule.in_dim,
-        cfg.model.hidden_dim,
-        n_layers=cfg.model.n_layers,
-        batch_size=cfg.training.batch_size,
-        lr=cfg.training.learning_rate
-    )
+#     model = SAGELightning(
+#         datamodule.in_dim,
+#         cfg.model.hidden_dim,
+#         n_layers=cfg.model.n_layers,
+#         batch_size=cfg.training.batch_size,
+#         lr=cfg.training.learning_rate
+#     )
 
-    trainer = Trainer(accelerator=device)
-    dataloader = datamodule.val_dataloader()
-    trainer.test(model, dataloaders=dataloader)
+#     trainer = Trainer(accelerator=device)
+#     dataloader = datamodule.val_dataloader()
+#     trainer.test(model, dataloaders=dataloader)
 
-@hydra.main(config_name="config", config_path="conf", version_base=None)
-def baseline(cfg):
-    if not torch.cuda.is_available():
-        device = "cpu"
-    else:
-        device = "cuda"
+# @hydra.main(config_name="config", config_path="conf", version_base=None)
+# def baseline(cfg):
+#     if not torch.cuda.is_available():
+#         device = "cpu"
+#     else:
+#         device = "cuda"
 
-    #root = pyrootutils.setup_root(__file__, pythonpath=True)
+#     #root = pyrootutils.setup_root(__file__, pythonpath=True)
     
-    train_graph_root = cfg.data.zillow_graph_root
+#     train_graph_root = cfg.data.zillow_graph_root
 
-    modal_node_ids_file = os.path.join(train_graph_root,'modal_node_ids.json')
-    datamodule = DataModule(
-        train_graph_root, 
-        modal_node_ids_file, 
-        keyword_as_src=False, 
-        device=device, 
-        batch_size=cfg.training.batch_size, 
-        force_reload=False
-    )
-    predictor = ScorePredictor()
+#     modal_node_ids_file = os.path.join(train_graph_root,'modal_node_ids.json')
+#     datamodule = DataModule(
+#         train_graph_root, 
+#         modal_node_ids_file, 
+#         keyword_as_src=False, 
+#         device=device, 
+#         batch_size=cfg.training.batch_size, 
+#         force_reload=False
+#     )
+#     predictor = ScorePredictor()
 
-    mean_pos_score = MeanMetric().to(device)
-    mean_neg_score = MeanMetric().to(device)
-    AUROC = BinaryAUROC(thresholds=None)
-    BAP = BinaryAveragePrecision(thresholds=None)
+#     mean_pos_score = MeanMetric().to(device)
+#     mean_neg_score = MeanMetric().to(device)
+#     AUROC = BinaryAUROC(thresholds=None)
+#     BAP = BinaryAveragePrecision(thresholds=None)
 
-    AUROCs = []
-    BAPs   = []
+#     AUROCs = []
+#     BAPs   = []
 
-    dataloader = datamodule.val_dataloader()
-    for input_nodes, pos_graph, neg_graph, blocks in dataloader:
-        x = blocks[1].dstdata["feat"]
-        # neg_graph = dgl.graph((neg_graph.edges()), num_nodes=pos_graph.num_nodes())
-        pos_score = predictor(pos_graph, x)
-        neg_score = predictor(neg_graph, x)
+#     dataloader = datamodule.val_dataloader()
+#     for input_nodes, pos_graph, neg_graph, blocks in dataloader:
+#         x = blocks[1].dstdata["feat"]
+#         # neg_graph = dgl.graph((neg_graph.edges()), num_nodes=pos_graph.num_nodes())
+#         pos_score = predictor(pos_graph, x)
+#         neg_score = predictor(neg_graph, x)
 
-        mean_pos_score(pos_score)
-        mean_neg_score(neg_score)
+#         mean_pos_score(pos_score)
+#         mean_neg_score(neg_score)
 
-        scores = torch.cat([pos_score, neg_score])
-        pos_label = torch.ones_like(pos_score)
-        neg_label = torch.zeros_like(neg_score)
-        labels = torch.cat([pos_label, neg_label])
+#         scores = torch.cat([pos_score, neg_score])
+#         pos_label = torch.ones_like(pos_score)
+#         neg_label = torch.zeros_like(neg_score)
+#         labels = torch.cat([pos_label, neg_label])
 
-        AUROCs.append(AUROC(scores, labels).item())
-        BAPs.append(BAP(scores, labels).item())
-        # break
-    print("Baseline: ")
-    print(f"Mean AUROC: {np.mean(AUROCs)}")
-    print(f"Mean BinaryAveragePrecision: {np.mean(BAPs)}")
-    print(f"Mean Positive Edge Score: {mean_pos_score.compute()}")
-    print(f"Mean Negative Edge Score: {mean_neg_score.compute()}")
-    print()
+#         AUROCs.append(AUROC(scores, labels).item())
+#         BAPs.append(BAP(scores, labels).item())
+#         # break
+#     print("Baseline: ")
+#     print(f"Mean AUROC: {np.mean(AUROCs)}")
+#     print(f"Mean BinaryAveragePrecision: {np.mean(BAPs)}")
+#     print(f"Mean Positive Edge Score: {mean_pos_score.compute()}")
+#     print(f"Mean Negative Edge Score: {mean_neg_score.compute()}")
+#     print()
 
 
 
 if __name__ == "__main__":
-    train()
-    # evaluate()
-    # baseline()
+    train_wrapper(org='coco')
+    #train_wrapper(org='coco', pre_connect_threshold=0.95)
+    #train_wrapper(org='zillow')
+    #train_wrapper(org='zillow', pre_connect_threshold=0.975)
+    
     print("Done")
