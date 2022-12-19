@@ -314,6 +314,8 @@ def train_graph(device, reconnection_method, org):
         force_reload=False
     )
 
+    print(datamodule)
+
     model = SAGELightning(
         datamodule.in_dim,
         cfg.model.hidden_dim,
@@ -328,7 +330,7 @@ def train_graph(device, reconnection_method, org):
     trainer = Trainer(accelerator="gpu", max_epochs=cfg.training.n_epochs, callbacks=[checkpoint_callback])
     trainer.fit(model, datamodule=datamodule)
 
-    return model, datamodule
+    return model, datamodule, modal_node_ids_file, connect_type
 
 def get_scene_edges(node_id, device, input_graph=None, eval_train_scene_ids=None):
     u_node, v_node = input_graph.edges()
@@ -763,6 +765,422 @@ def generate_plots(sage_clip_metrics):
             plt.title(f'{avg_type}-averaged link prediction {metric}')
             plt.show()
 
+def cosine_sim(a, b):
+    a = F.normalize(a, p=2, dim=-1)
+    b = F.normalize(b, p=2, dim=-1)
+
+    try:
+        return a @ b.T
+    except:
+        print('Matrix multiplication failed. Check dimensions.')
+
+def test_eval_dataloader(g, layer_sampler, batch_size, eids, device):
+    edge_sampler = dgl.dataloading.as_edge_prediction_sampler(layer_sampler)
+
+    return dgl.dataloading.DataLoader(
+        g,
+        eids,
+        edge_sampler,
+        device=device,
+        batch_size=batch_size,
+        shuffle=False,
+        drop_last=False
+        # num_workers=self.num_workers,
+    )
+
+def eval(modal_node_ids_file, model, datamodule, reconnection_method, org, connect_type, device):
+    cfg = NestedNamespace(yaml.load(open('conf/config.yaml'), Loader=Loader))
+    val_csv_dataset_root = cfg.graph.zillow_verified.graph_dir + '_images_975'
+
+    test_modal_node_ids_file = os.path.join(val_csv_dataset_root,'modal_node_ids.json')
+    test_new_old_node_id_mapping_file = os.path.join(val_csv_dataset_root,'new_old_node_id_mapping.json')
+    test_datamodule = DataModule(
+        val_csv_dataset_root, 
+        modal_node_ids_file, 
+        keyword_as_src=False, 
+        device=device, 
+        batch_size=cfg.training.batch_size, 
+        force_reload=False
+    )
+
+    test_subgraph = test_datamodule.g_bid
+    test_eval_subgraph = datamodule.g_bid.subgraph(datamodule.g_bid.nodes())
+    test_eval_subgraph.ndata['test_mask'] = torch.zeros(len(test_eval_subgraph.nodes()), dtype=torch.uint8).to(device)
+    print(len(test_eval_subgraph.ndata['test_mask']))
+
+    test_img_node_idxs = (test_subgraph.ndata['ntype'] == 0).nonzero().squeeze()
+    test_img_embeds = test_subgraph.ndata['feat'][test_img_node_idxs]
+    test_img_node_ids = test_subgraph.nodes()[test_img_node_idxs] + torch.max(test_eval_subgraph.nodes()) + 1
+
+    print('number of test img nodes:', len(test_img_node_ids))
+    print('number of "train" img nodes:', len(test_eval_subgraph.nodes()))
+
+    test_nodes_data = {'train_mask': torch.zeros(len(test_img_node_ids), dtype=torch.uint8).to(device),
+                    'val_mask': torch.zeros(len(test_img_node_ids), dtype=torch.uint8).to(device),
+                    'test_mask': torch.ones(len(test_img_node_ids), dtype=torch.uint8).to(device),
+                    'ntype': torch.zeros(len(test_img_node_ids), dtype=torch.int64).to(device),
+                    'feat': test_img_embeds.to(device),
+                    '_ID': test_img_node_ids}
+
+    test_eval_subgraph.add_nodes(num=len(test_img_node_ids), data=test_nodes_data)
+
+    if reconnection_method == 'cosine':
+        # Step 3: Identify image node pairs as edges
+
+        eval_train_img_node_idxs = ((test_eval_subgraph.ndata['ntype'] == 0)&(test_eval_subgraph.ndata['test_mask']==0)).nonzero().squeeze()
+        eval_train_kw_node_idxs = ((test_eval_subgraph.ndata['ntype'] == 1)&(test_eval_subgraph.ndata['test_mask']==0)).nonzero().squeeze()
+        eval_test_img_node_idxs = ((test_eval_subgraph.ndata['ntype'] == 0)&(test_eval_subgraph.ndata['test_mask']==1)).nonzero().squeeze()
+        
+        eval_train_img_embeds = test_eval_subgraph.ndata['feat'][eval_train_img_node_idxs]
+        eval_train_kw_embeds = test_eval_subgraph.ndata['feat'][eval_train_kw_node_idxs]
+        eval_test_img_embeds = test_eval_subgraph.ndata['feat'][eval_test_img_node_idxs]
+
+        cosine_sims_img_matrix = cosine_sim(eval_test_img_embeds, eval_train_img_embeds)
+        cosine_sims_img_kw_matrix = cosine_sim(eval_test_img_embeds, eval_train_kw_embeds)
+        print(eval_test_img_embeds.size())
+        print(cosine_sims_img_matrix.size())
+
+        img_sim_threshold = 0.98
+        img_img_k = 5
+        img_kw_k = 5
+                
+        test_eval_matches = []
+        for i in tqdm(range(cosine_sims_img_matrix.size(0)), desc='computing image-image matches'):
+            # get val img to train img matches
+            eval_train_img_node_id_matches = eval_train_img_node_idxs[(cosine_sims_img_matrix[i]>img_sim_threshold)]
+
+            if len(eval_train_img_node_id_matches) < img_img_k:
+                img_matches, img_match_indices = torch.topk(cosine_sims_img_matrix[i], img_img_k)
+                eval_train_img_node_id_matches = eval_train_img_node_idxs[img_match_indices]
+            
+            # get val img to train keyword matches
+            kw_matches, kw_match_indices = torch.topk(cosine_sims_img_kw_matrix[i], img_kw_k)
+            
+            eval_train_kw_node_id_matches = eval_train_kw_node_idxs[kw_match_indices]
+
+            eval_train_node_id_matches = torch.cat((eval_train_img_node_id_matches, eval_train_kw_node_id_matches))
+            test_eval_matches.append(eval_train_node_id_matches.tolist())
+
+        test_matches_per_img = [len(match_list) for match_list in test_eval_matches]
+
+
+    elif reconnection_method == 'scene':
+        # Step 3: Identify image and scene node pairs as edges
+
+        eval_train_img_node_idxs = ((test_eval_subgraph.ndata['ntype'] == 0)&(test_eval_subgraph.ndata['test_mask']==0)).nonzero().squeeze()
+        eval_train_scene_node_idxs = ((test_eval_subgraph.ndata['ntype'] == 2)&(test_eval_subgraph.ndata['test_mask']==0)).nonzero().squeeze()
+
+        eval_test_img_node_idxs = ((test_eval_subgraph.ndata['ntype'] == 0)&(test_eval_subgraph.ndata['test_mask']==1)).nonzero().squeeze()
+        eval_test_scene_node_idxs = ((test_eval_subgraph.ndata['ntype'] == 2)&(test_eval_subgraph.ndata['test_mask']==1)).nonzero().squeeze()
+
+        eval_train_img_ids = test_eval_subgraph.ndata['_ID'][eval_train_img_node_idxs]
+        eval_train_scene_ids = test_eval_subgraph.ndata['_ID'][eval_train_scene_node_idxs]
+
+        eval_test_img_ids = test_eval_subgraph.ndata['_ID'][eval_test_img_node_idxs]
+        eval_test_scene_ids = test_eval_subgraph.ndata['_ID'][eval_test_scene_node_idxs]
+
+    if reconnection_method == 'cosine':
+        # Step 4: Add the edges to eval_subgraph
+
+        u_test = []
+        v_test = []
+
+        for i in range(len(test_eval_matches)):
+            test_img_node = eval_test_img_node_idxs[i].item()
+            train_matches = test_eval_matches[i]
+            for node_id in train_matches:
+                train_img_node = node_id
+                # Add bidirectional edge for each match
+                u_test += [test_img_node, train_img_node]
+                v_test += [train_img_node, test_img_node]
+
+    elif reconnection_method == 'scene':
+        
+        ## every eval-validation image:
+        ##### find all eval-train scenes it is connected to in the eval_subgraph
+        ##### connect the image-scene 
+
+        u_test = []
+        v_test = []
+
+        for eval_test_img_id in tqdm(eval_test_img_ids):
+            matching_eval_train_scenes = get_scene_edges(eval_test_img_id, 
+                                                        device, 
+                                                        input_graph=datamodule.g_bid, 
+                                                        eval_train_scene_ids=eval_train_scene_ids)
+            
+            if matching_eval_train_scenes.size(dim=0) > 0:
+                for scene in matching_eval_train_scenes:
+                    u_test += [eval_test_img_id.item(), scene.item()]
+                    v_test += [scene.item(), eval_test_img_id.item()]
+
+
+    test_edge_data = {'_ID': torch.arange(torch.max(test_eval_subgraph.edata['_ID'])+1, torch.max(test_eval_subgraph.edata['_ID'])+1+len(u_test), dtype=torch.int64).to(device)}
+    test_eval_subgraph.add_edges(torch.LongTensor(u_test).to(device), torch.LongTensor(v_test).to(device), data=test_edge_data)
+    test_eval_subgraph = test_eval_subgraph.add_self_loop()
+
+    # Step 5: Turn DGL graph into DataLoader object for GraphSAGE forward inference
+
+    u_test_eval, v_test_eval = test_eval_subgraph.edges()
+    test_eval_subgraph_eids = test_eval_subgraph.edge_ids(u_test_eval, v_test_eval)
+    layer_sampler = dgl.dataloading.NeighborSampler(fanouts=[10, 25]) # During message passing between GNN layers, each node accept messages from a maximum of 25 incoming nodes
+    batch_size = len(test_eval_subgraph_eids)
+
+    test_eval_dl = test_eval_dataloader(test_eval_subgraph, layer_sampler, batch_size, test_eval_subgraph_eids, device)
+
+    # Step 6: Run graphSAGE forward inference over entire val_subgraph message flow graph (MFG)
+
+    for batch in test_eval_dl:
+        # This loop only runs once b/c batch_size = number of total edges in train_val_subgraph - we only need it to get "blocks"
+        test_inputs, test_edge_subgraph, test_blocks = batch
+        
+    x = test_blocks[0].srcdata["feat"]
+    model = model.to(device)
+    logits = model.module(test_blocks, x)
+
+    test_eval_subgraph.ndata['feat_pred'] = logits
+
+    # Step 7: Extract validation image features and keyword features for 
+    eval_test_img_node_ids = ((test_eval_subgraph.ndata['test_mask']==1)&(test_eval_subgraph.ndata['ntype']==0)).nonzero().squeeze()
+    eval_keyword_node_ids = ((test_eval_subgraph.ndata['ntype']==1)).nonzero().squeeze()
+
+    test_keyword_ids = test_subgraph.nodes()[(test_subgraph.ndata['ntype']==1).nonzero().squeeze()].cpu().detach().tolist()
+    test_new_old_node_id_mapping = json.load(open(test_new_old_node_id_mapping_file, 'r'))
+    test_keyword_hashes = [test_new_old_node_id_mapping[str(key)] for key in test_keyword_ids]
+
+    if org == 'coco':
+        csv_dataset_root = cfg.data.coco_graph_root
+    elif org == 'zillow':
+        csv_dataset_root = cfg.data.zillow_graph_root + connect_type
+    elif org == 'zillow_verified':
+        csv_dataset_root = cfg.data.zillow_verified_graph_root + connect_type
+
+
+    train_new_old_node_id_mapping_file = os.path.join(csv_dataset_root,'new_old_node_id_mapping.json')
+    train_new_old_node_id_mapping = json.load(open(train_new_old_node_id_mapping_file, 'r'))
+    train_keyword_hashes = [train_new_old_node_id_mapping[str(key.item())] for key in eval_keyword_node_ids]
+
+    train_overlap_ids = []
+    for i in range(len(train_keyword_hashes)):
+        if train_keyword_hashes[i] in test_keyword_hashes:
+            train_overlap_ids.append(eval_keyword_node_ids[i])
+    eval_test_keyword_node_ids = torch.LongTensor(train_overlap_ids)
+
+    test_overlap_ids = []
+    for i in range(len(test_keyword_hashes)):
+        if test_keyword_hashes[i] in train_keyword_hashes:
+            test_overlap_ids.append(test_keyword_ids[i])
+    test_keyword_node_ids = torch.LongTensor(test_overlap_ids)
+
+    # Post-GraphSAGE embeddings
+    eval_test_img_feat_sage = test_eval_subgraph.ndata['feat_pred'][eval_test_img_node_ids]
+    eval_keyword_feat_sage = test_eval_subgraph.ndata['feat_pred'][eval_test_keyword_node_ids]
+
+    # Original CLIP embeddings before GraphSAGE forward method
+    eval_test_img_feat_clip = test_eval_subgraph.ndata['feat'][eval_test_img_node_ids]
+    eval_keyword_feat_clip = test_eval_subgraph.ndata['feat'][eval_test_keyword_node_ids]
+
+    # Step 8: Compute cosine similarities between validation images and keywords to get "link scores" between 0 and 1
+
+    test_sage_link_scores = cosine_sim(eval_keyword_feat_sage, eval_test_img_feat_sage).cpu().detach().numpy()
+    test_clip_link_scores = cosine_sim(eval_keyword_feat_clip, eval_test_img_feat_clip).cpu().detach().numpy()
+
+    # Step 9: Get true labels for each keyword from validation subgraph adjacency matrix
+    # Adjacency matrix needs to be sub-setted such that rows correspond only to image nodes and columns correspond only to keyword nodes
+    test_img_indices = (test_subgraph.ndata['ntype']==0).nonzero().cpu().reshape(1, -1)
+    test_keyword_indices = test_keyword_node_ids.reshape(-1, 1)
+
+    test_adj_matrix = test_subgraph.adjacency_matrix().to_dense().numpy()
+    test_adj_matrix = test_adj_matrix[test_keyword_indices, test_img_indices]
+    print(test_adj_matrix.shape)
+
+    # Step 10: Make predictions based on prediction threshold and get precision, recall, and accuracy 
+    pred_thresholds = np.linspace(0.1, 0.9, 50)
+    test_sage_clip_metrics = pd.DataFrame()
+
+    for pred_threshold in pred_thresholds:
+        test_sage_link_predictions = (test_sage_link_scores > pred_threshold).astype(int)
+        test_clip_link_predictions = (test_clip_link_scores > pred_threshold).astype(int)
+
+        results_dict = {'sage': {'tp': np.empty(len(test_sage_link_predictions)),
+                                'fp': np.empty(len(test_sage_link_predictions)),
+                                'fn': np.empty(len(test_sage_link_predictions)),
+                                'actual_p': np.empty(len(test_sage_link_predictions)),
+                                'precision': np.empty(len(test_sage_link_predictions)),
+                                'recall': np.empty(len(test_sage_link_predictions))},
+                        'clip': {'tp': np.empty(len(test_clip_link_predictions)),
+                                'fp': np.empty(len(test_clip_link_predictions)),
+                                'fn': np.empty(len(test_clip_link_predictions)),
+                                'actual_p': np.empty(len(test_clip_link_predictions)),
+                                'precision': np.empty(len(test_clip_link_predictions)),
+                                'recall': np.empty(len(test_clip_link_predictions))}}
+
+        weights = np.empty(len(test_sage_link_predictions))
+
+        for i in range(len(test_sage_link_predictions)):
+            sage_tp = np.sum(((test_sage_link_predictions[i]==1)&(test_adj_matrix[i]==1)))
+            sage_fp = np.sum(((test_sage_link_predictions[i]==1)&(test_adj_matrix[i]==0)))
+            sage_fn = np.sum(((test_sage_link_predictions[i]==0)&(test_adj_matrix[i]==1)))
+            sage_p = np.sum(test_sage_link_predictions[i])
+            
+            clip_tp = np.sum(((test_clip_link_predictions[i]==1)&(test_adj_matrix[i]==1)))
+            clip_fp = np.sum(((test_clip_link_predictions[i]==1)&(test_adj_matrix[i]==0)))
+            clip_fn = np.sum(((test_clip_link_predictions[i]==0)&(test_adj_matrix[i]==1)))
+            clip_p = np.sum(test_clip_link_predictions[i])
+
+            true_p = np.sum(test_adj_matrix[i])
+            
+            results_dict['sage']['tp'][i] = sage_tp
+            results_dict['sage']['fp'][i] = sage_fp
+            results_dict['sage']['fn'][i] = sage_fn
+            results_dict['sage']['actual_p'][i] = true_p
+            results_dict['sage']['precision'][i] = sage_tp / sage_p if sage_p > 0 else 0
+            results_dict['sage']['recall'][i] = sage_tp / true_p if true_p > 0 else 0
+
+            results_dict['clip']['tp'][i] = clip_tp
+            results_dict['clip']['fp'][i] = clip_fp
+            results_dict['clip']['fn'][i] = clip_fn
+            results_dict['clip']['actual_p'][i] = true_p
+            results_dict['clip']['precision'][i] = clip_tp / clip_p if clip_p > 0 else 0
+            results_dict['clip']['recall'][i] = clip_tp / true_p if true_p > 0 else 0
+
+            weights[i] = true_p
+
+        weights /= np.sum(weights)
+
+        for method in results_dict.keys():
+            row = {'threshold': pred_threshold, 'method': method}
+            for metric in results_dict[method]:
+                if metric == 'precision' or metric == 'recall':
+                    row[f'{metric}_micro'] = np.mean(results_dict[method][metric]*weights)
+                    row[f'{metric}_macro'] = np.mean(results_dict[method][metric])
+                else:
+                    row[metric] = np.mean(results_dict[method][metric])
+            test_sage_clip_metrics = pd.concat([test_sage_clip_metrics, pd.DataFrame([row])], ignore_index=True)
+
+    test_sage_metrics = test_sage_clip_metrics[(test_sage_clip_metrics['method']=='sage')]
+    test_clip_metrics = test_sage_clip_metrics[(test_sage_clip_metrics['method']=='clip')]
+
+    print('Best SAGE metrics: ')
+    print('Precision, Recall at Max Recall:\n', test_sage_metrics[test_sage_metrics['recall_macro']==test_sage_metrics['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+    print('Precision, Recall at Max Precision:\n', test_sage_metrics[test_sage_metrics['precision_macro']==test_sage_metrics['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+
+    print('Best CLIP metrics: ')
+    print('Precision, Recall at Max Recall:\n', test_clip_metrics[test_clip_metrics['recall_macro']==test_clip_metrics['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+    print('Precision, Recall at Max Precision:\n', test_clip_metrics[test_clip_metrics['precision_macro']==test_clip_metrics['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+
+    try:
+        test_sage_metrics.to_csv('exprmt_metrics/test_sage_metrics_' + 
+                            reconnection_method + 
+                            '_' + 
+                            org + 
+                            '.csv')
+        test_clip_metrics.to_csv('exprmt_metrics/test_clip_metrics_' + 
+                            reconnection_method + 
+                            '_' +
+                            org +
+                            '.csv')
+        print('WROTE TO FILE - TEST')
+    except:
+        print('WRITE TO FILE FAILED')
+
+
+    top_k = True
+    if top_k:
+        # Step 10: Make predictions based on prediction threshold and get precision, recall, and accuracy 
+        k_thresholds = np.linspace(2, 50, 25)
+        sage_clip_metrics_k = pd.DataFrame()
+
+        for k_threshold in tqdm(k_thresholds):
+            k_threshold = int(k_threshold)
+            val_sage_link_predictions = np.apply_along_axis(predict_top_k, 0, test_sage_link_scores, k_threshold)
+            val_clip_link_predictions = np.apply_along_axis(predict_top_k, 0, test_clip_link_scores, k_threshold)
+
+            results_dict_k = {'sage': {'tp': np.empty(len(val_sage_link_predictions)),
+                                    'fp': np.empty(len(val_sage_link_predictions)),
+                                    'fn': np.empty(len(val_sage_link_predictions)),
+                                    'actual_p': np.empty(len(val_sage_link_predictions)),
+                                    'precision': np.empty(len(val_sage_link_predictions)),
+                                    'recall': np.empty(len(val_sage_link_predictions))},
+                            'clip': {'tp': np.empty(len(val_sage_link_predictions)),
+                                    'fp': np.empty(len(val_sage_link_predictions)),
+                                    'fn': np.empty(len(val_sage_link_predictions)),
+                                    'actual_p': np.empty(len(val_sage_link_predictions)),
+                                    'precision': np.empty(len(val_sage_link_predictions)),
+                                    'recall': np.empty(len(val_sage_link_predictions))}}
+
+            weights = np.empty(len(val_sage_link_predictions))
+
+            for i in range(len(val_sage_link_predictions)):
+                sage_tp = np.sum(((val_sage_link_predictions[i]==1)&(test_adj_matrix[i]==1)))
+                sage_fp = np.sum(((val_sage_link_predictions[i]==1)&(test_adj_matrix[i]==0)))
+                sage_fn = np.sum(((val_sage_link_predictions[i]==0)&(test_adj_matrix[i]==1)))
+                sage_p = np.sum(val_sage_link_predictions[i])
+                
+                clip_tp = np.sum(((val_clip_link_predictions[i]==1)&(test_adj_matrix[i]==1)))
+                clip_fp = np.sum(((val_clip_link_predictions[i]==1)&(test_adj_matrix[i]==0)))
+                clip_fn = np.sum(((val_clip_link_predictions[i]==0)&(test_adj_matrix[i]==1)))
+                clip_p = np.sum(val_clip_link_predictions[i])
+
+                true_p = np.sum(test_adj_matrix[i])
+                
+                results_dict_k['sage']['tp'][i] = sage_tp
+                results_dict_k['sage']['fp'][i] = sage_fp
+                results_dict_k['sage']['fn'][i] = sage_fn
+                results_dict_k['sage']['actual_p'][i] = true_p
+                results_dict_k['sage']['precision'][i] = sage_tp / sage_p if sage_p > 0 else 0
+                results_dict_k['sage']['recall'][i] = sage_tp / true_p if true_p > 0 else 0
+
+                results_dict_k['clip']['tp'][i] = clip_tp
+                results_dict_k['clip']['fp'][i] = clip_fp
+                results_dict_k['clip']['fn'][i] = clip_fn
+                results_dict_k['clip']['actual_p'][i] = true_p
+                results_dict_k['clip']['precision'][i] = clip_tp / clip_p if clip_p > 0 else 0
+                results_dict_k['clip']['recall'][i] = clip_tp / true_p if true_p > 0 else 0
+
+                weights[i] = true_p
+
+            weights /= np.sum(weights)
+
+            for method in results_dict_k.keys():
+                row = {'threshold': k_threshold, 'method': method}
+                for metric in results_dict_k[method]:
+                    if metric == 'precision' or metric == 'recall':
+                        row[f'{metric}_micro'] = np.mean(results_dict_k[method][metric]*weights)
+                        row[f'{metric}_macro'] = np.mean(results_dict_k[method][metric])
+                    else:
+                        row[metric] = np.mean(results_dict_k[method][metric])
+                sage_clip_metrics_k = pd.concat([sage_clip_metrics_k, pd.DataFrame([row])], ignore_index=True)
+
+        sage_metrics_k = sage_clip_metrics_k[(sage_clip_metrics_k['method']=='sage')]
+        clip_metrics_k = sage_clip_metrics_k[(sage_clip_metrics_k['method']=='clip')]
+
+        print('--- EVAL TOP K ---')
+        print('Best SAGE metrics: ')
+        print('Precision, Recall at Max Recall:\n', sage_metrics_k[sage_metrics_k['recall_macro']==sage_metrics_k['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+        print('Precision, Recall at Max Precision:\n', sage_metrics_k[sage_metrics_k['precision_macro']==sage_metrics_k['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+
+        print('Best CLIP metrics: ')
+        print('Precision, Recall at Max Recall:\n', clip_metrics_k[clip_metrics_k['recall_macro']==clip_metrics_k['recall_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+        print('Precision, Recall at Max Precision:\n', clip_metrics_k[clip_metrics_k['precision_macro']==clip_metrics_k['precision_macro'].max()][['threshold', 'precision_macro', 'recall_macro']].iloc[0,:])
+
+
+        try:
+            sage_metrics_k.to_csv('exprmt_metrics/test_sage_metrics_k_' + 
+                                reconnection_method + 
+                                '_' + 
+                                org + 
+                                '.csv')
+            clip_metrics_k.to_csv('exprmt_metrics/test_clip_metrics_k_' + 
+                                reconnection_method + 
+                                '_' +
+                                org +
+                                '.csv')
+            print('WROTE TO FILE - TEST TOP K')
+        except:
+            print('WRITE TO FILE FAILED')
+
+
 def setup_file():
 
     root_path = pyrootutils.find_root(search_from=__file__, indicator=".git")
@@ -793,19 +1211,24 @@ def pipeline(method, org):
     print('Reconnection Method :', method)
     print('--' * 20)
 
+    ## Setup
     device = setup_file() 
-    model, datamodule = train_graph(device, method, org)
+    ## Train
+    model, datamodule, modal_node_ids_file, connect_type = train_graph(device, method, org)
+    ## Reconnect
     eval_subgraph, val_subgraph = reconnect_nodes(datamodule, 
                                                   reconnection_method=method, 
                                                   device=device, 
                                                   verbose=True)
+    ## Inference
     val_sage_link_scores, val_clip_link_scores = graph_inference(eval_subgraph, 
                                                                  model, 
                                                                  device, 
                                                                  verbose=False)    
-
+    ## Compute Metrics - Preprocess
     val_adj_matrix = compute_metrics_preprocess(val_subgraph)  
 
+    ## Compute Metrics
     k = np.linspace(2, 100, 25)
     compute_metrics(val_adj_matrix, 
                     val_sage_link_scores, 
@@ -813,6 +1236,9 @@ def pipeline(method, org):
                     method, 
                     org, 
                     k)
+
+    ## Evaluate on Test 
+    eval(modal_node_ids_file, model, datamodule, method, org, connect_type, device)
 
     print('--' * 20)
     print('Completed Pipeline for: ', method)

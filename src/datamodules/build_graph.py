@@ -384,11 +384,18 @@ if __name__ == "__main__":
         cwd=True,
     )
 
+    ###########################
+    ## MAIN WRAPPER DEFAULTS ##
+    ###########################
 
-    #main_wrapper(org='zillow_verified', new_edge_mode='images')
-    main_wrapper(org='zillow_verified')
-    #main_wrapper(org='coco', new_edge_mode='images', sim_threshold=0.925)
-    #main_wrapper(org='coco')
-    #main_wrapper(org='zillow', new_edge_mode='images', sim_threshold=0.975)
-    #main_wrapper(org='zillow')
+    '''
+    org="zillow" 
+    scenes=True 
+    new_edge_mode=None
+    sim_threshold=None 
+    new_edges_batch_size=500 
+    '''
+     
+    main_wrapper(org='zillow')
+
 
