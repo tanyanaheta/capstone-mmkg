@@ -13,7 +13,7 @@ This project was sanctioned and facilitated by the NYU Center for Data Science.
 | Configuration                     | `conf/config.yaml`                                           |
 | Data Processing                   | `src/datamodules/clip_embed.py`                              |
 | Graph Generation - Initialization | `src/datamodules/build_graph.py`                             |
-| Graph Generation - Training       | `train_graphsage.py` OR `notebooks/validation_exp_all.ipynb` |
+| Graph Generation - Training       | `train_graphsage.py`                                         |
 | Graph Generation - Validation     | `notebooks/validation_exp_all.ipynb`                         |
 | Link Prediction                   | `notebooks/validation_exp_all.ipynb`                         |
 | Graph Objects                     | `graph/*`                                                    |
