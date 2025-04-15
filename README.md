@@ -1,8 +1,12 @@
 # Multimodal Graph Induction: Project Respository
 
-This is the project repository for Team A within the NYU-Zillow Capstone collaboration. The code in this repository was produced by Adi Srikanth, Andre Chen, David Roth, and Tanya Naheta. The code is built on proprietary information provided by Zillow Group. 
+This is the project repository for Team A within the NYU-Zillow Capstone collaboration. The code in this repository was produced by Adi Srikanth, Andre Chen, David Roth, and Tanya Naheta. This project was originally built on proprietary information provided by Zillow Group. As such, all data from Zillow has been omitted from this public repository, and we provide results on a similarly formatted open-source multimodal dataset ([MSCOCO](https://cocodataset.org/#download)) instead. 
 
-This project was sanctioned and facilitated by the NYU Center for Data Science. 
+This project was sanctioned and facilitated by the NYU Center for Data Science with mentorship from the Zillow Applied Science team.
+
+# Executive Summary
+ 
+This project applied GraphSAGE, an inductive graph neural network, to multimodal representation learning using real estate listing data from Zillow. We constructed a multi-modal knowledge graph (MMKG) with CLIP-initialized image and text embeddings, and trained a two-layer GraphSAGE model with mean aggregation and contrastive loss. To simulate inference on unseen data, we tested three node reconnection strategies. Link prediction tasks on MS-COCO and Zillow datasets evaluated performance. Results showed improved recall and embedding quality on human-labeled data, highlighting the potential of GNNs for multimodal search, keyword attribution, and recommendation systems in production settings.
 
 # Setup and Environment Overview 
 
